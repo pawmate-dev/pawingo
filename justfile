@@ -11,7 +11,7 @@ run: build
 
 test:
     xmake build pawingo-tests
-    xmake run pawingo-tests
+    xmake run pawingo-tests "$(pwd)/build/test-plugins/libtest-plugin.so"
 
 clean:
     xmake clean
