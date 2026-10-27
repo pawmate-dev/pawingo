@@ -54,6 +54,9 @@ int main(int argc, char **argv) {
     require(words.size() == 1 && words[0].source == "dictionary" && words[0].id > 0,
       "saved vocabulary");
     store.record_review(words[0].id, pawingo::Match::correct, 100, 200);
+    require(store.review_timestamps(100, 101).size() == 1 &&
+        store.review_timestamps(101, 200).empty(),
+      "review time range");
     bool foreign_key_rejected = false;
     try {
       store.record_review(-1, pawingo::Match::correct, 100, 200);

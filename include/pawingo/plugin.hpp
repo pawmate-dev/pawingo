@@ -66,6 +66,14 @@ public:
   virtual ftxui::Component create_panel(const std::string &id, Host &host) = 0;
 };
 
+// Optional extension: the host places panel shortcuts in its screen footer.
+// Keeping this separate preserves the existing LanguagePlugin vtable.
+class PanelHelpProvider {
+public:
+  virtual ~PanelHelpProvider() = default;
+  virtual std::string panel_help(const std::string &id) const = 0;
+};
+
 // The entry point returns a descriptor that remains valid until dlclose.
 // Its ABI fields are checked before invoking the create function. Loading the
 // library and calling its entry point can already execute plugin code.

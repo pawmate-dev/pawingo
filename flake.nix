@@ -8,7 +8,7 @@
     in {
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {
-          packages = with pkgs; [ clang llvmPackages.clang-tools xmake just pkg-config ftxui sqlite ];
+          packages = with pkgs; [ clang llvmPackages.clang-tools xmake just pkg-config ftxui sqlite prettier ];
           CC = "clang";
           CXX = "clang++";
         };

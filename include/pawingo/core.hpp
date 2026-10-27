@@ -24,6 +24,8 @@ public:
   OnlinePolicy policy(const std::string &service);
   void set_policy(const std::string &service, OnlinePolicy policy);
   // Times are Unix timestamps in seconds; vocabulary_id must refer to a saved entry.
+  // Returns review timestamps in the half-open Unix-second interval [from, until).
+  std::vector<std::int64_t> review_timestamps(std::int64_t from, std::int64_t until);
   void record_review(std::int64_t vocabulary_id,
     Match result,
     std::int64_t reviewed_at,

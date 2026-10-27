@@ -177,6 +177,12 @@ void Store::set_policy(const std::string &service, OnlinePolicy p) {
 void Store::record_review(std::int64_t id, Match result, std::int64_t reviewed, std::int64_t next) {
   impl_->db.insert(ReviewRow{0, id, static_cast<int>(result), reviewed, next});
 }
+std::vector<std::int64_t> Store::review_timestamps(std::int64_t from, std::int64_t until) {
+  using namespace sqlite_orm;
+  return impl_->db.select(&ReviewRow::reviewed_at,
+    where(c(&ReviewRow::reviewed_at) >= from && c(&ReviewRow::reviewed_at) < until),
+    order_by(&ReviewRow::reviewed_at));
+}
 std::vector<Vocabulary> search_dictionaries(Store &store,
   const std::vector<DictionaryProvider *> &providers,
   const std::string &query,
