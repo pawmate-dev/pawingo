@@ -1,0 +1,6 @@
+.xmake/
+.clice/
+.vscode/
+build/
+compile_commands.json
+result

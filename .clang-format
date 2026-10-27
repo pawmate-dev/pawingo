@@ -1,0 +1,27 @@
+BasedOnStyle: LLVM
+IndentWidth: 2
+ColumnLimit: 100
+NamespaceIndentation: None
+ContinuationIndentWidth: 2
+ConstructorInitializerIndentWidth: 2
+UseTab: Never
+AlignAfterOpenBracket: false
+AlignOperands: DontAlign
+AlignEscapedNewlines: DontAlign
+AlignTrailingComments:
+  Kind: Never
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignConsecutiveMacros: None
+AlignConsecutiveBitFields: None
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortLambdasOnASingleLine: None
+BreakAfterOpenBracketFunction: false
+BreakBeforeCloseBracketFunction: true
+PackParameters:
+  BinPack: OnePerLine
+PackArguments:
+  BinPack: OnePerLine
+PackConstructorInitializers: Never
