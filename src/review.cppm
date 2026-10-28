@@ -1,4 +1,5 @@
 module;
+#include "pawingo/config/settings.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -8,8 +9,8 @@ module;
 export module pawingo.review;
 
 export namespace pawingo::review {
-// Collapse ASCII whitespace only. Case and UTF-8 bytes remain unchanged;
-// language plugins handle Unicode normalization and language-specific rules.
+/// Collapses ASCII whitespace while preserving case and UTF-8 bytes.
+/// Unicode normalization and language-specific rules belong to the backend.
 std::string normalize(std::string_view input) {
   std::string result;
   bool space = false;
@@ -25,17 +26,27 @@ std::string normalize(std::string_view input) {
   }
   return result;
 }
+
+/// Matches nonempty answers after conservative whitespace normalization.
 bool exact(std::string_view answer, std::string_view expected) {
   const auto a = normalize(answer);
   return !a.empty() && a == normalize(expected);
 }
-// Initial policy: retry after ten minutes, or double a one-day interval for
-// each consecutive success (capped at 64 days). Times are Unix seconds.
+
+/// Computes the initial review policy's next Unix-second timestamp.
+///
+/// @param now Review completion time in Unix seconds.
+/// @param correct Whether the submitted answer was accepted.
+/// @param consecutive_correct Number of preceding consecutive successful reviews.
+/// @return A timestamp computed from the embedded retry, initial interval and doubling limit.
+/// This policy is independent of persistence; callers record the resulting timestamp.
 std::int64_t next_review(std::int64_t now, bool correct, unsigned consecutive_correct) {
   if (!correct)
-    return now + 600;
-  constexpr std::int64_t day = 86400;
-  auto shift = std::min(consecutive_correct, 6u);
+    return now + config::application().integer("review.retry_seconds", 1, 86400);
+  const std::int64_t day =
+    config::application().integer("review.initial_interval_seconds", 1, 31536000);
+  auto shift = std::min(consecutive_correct,
+    static_cast<unsigned>(config::application().integer("review.max_doublings", 0, 16)));
   return now + (day << shift);
 }
 } // namespace pawingo::review

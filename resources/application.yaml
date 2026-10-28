@@ -1,0 +1,48 @@
+schema: 1
+storage:
+  directory: pawingo
+  database: pawingo.sqlite3
+  plugins: plugins
+  plugin_override_env: PAWINGO_PLUGIN_DIR
+theme:
+  content_width: 72
+  wordmark: P a w i n g o
+  selection: ["●  ", "   "]
+  field_selection: ["● ", "  "]
+  footer_separator: "   ·   "
+  colors:
+    ink: [201, 194, 171]
+    secondary: [145, 139, 120]
+    muted: [112, 107, 93]
+    faint: [64, 67, 55]
+    olive: [139, 150, 112]
+    accent: [211, 101, 69]
+activity:
+  weeks: 14
+  light_threshold: 3
+  heavy_threshold: 6
+  marks: ['·', '◦', '○', '●']
+  today: ○
+review:
+  retry_seconds: 600
+  initial_interval_seconds: 86400
+  max_doublings: 6
+services:
+  default_policy: ask
+network:
+  download_bytes: 67108864
+  timeout_seconds: 180
+  connect_timeout_seconds: 15
+  max_redirects: 5
+languages:
+  - [Japanese, 日本語, '🇯🇵']
+  - [German, Deutsch, '🇩🇪']
+  - [English, English, '🇬🇧']
+messages:
+  no_plugins_installed_yet: "No plugins installed yet."
+  get_plugins: "Get plugins"
+  select_enter_open_q_quit: "↑ ↓  select    enter  open    q  quit"
+  no_learning_features_available: "No learning features available."
+  select_enter_open_esc_back: "↑ ↓  select    enter  open    esc  back"
+  no_plugins_available_for_download_yet: "No plugins available for download yet."
+  esc_back: "esc  back"

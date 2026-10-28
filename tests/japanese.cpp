@@ -1,5 +1,7 @@
+#include "pawingo/io/temporary_artifact.hpp"
 #include "pawingo/plugin.hpp"
 #include "pawingo/ui/theme.hpp"
+#include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <dlfcn.h>
@@ -13,21 +15,36 @@
 #include <thread>
 #include <unistd.h>
 
-class Host : public pawingo::Host {
+class Host : public pawingo::Host, public pawingo::UiRefresh {
 public:
-  void save(const pawingo::Vocabulary &) override {
+  std::vector<pawingo::Vocabulary> saved;
+  std::atomic<unsigned> redraws{0};
+
+  void request_redraw() override {
+    ++redraws;
   }
+
+  void save(const pawingo::Vocabulary &word) override {
+    saved.push_back(word);
+  }
+
   std::vector<pawingo::Resource> resources(pawingo::ResourceKind, const std::string &) override {
     return {};
   }
 };
+
 void require(bool condition, const char *message) {
   if (!condition)
     throw std::runtime_error(message);
 }
+
 int main(int argc, char **argv) {
   try {
-    require(argc == 2, "plugin path required");
+    require(argc == 3, "plugin and dictionary fixture paths required");
+    pawingo::io::TemporaryArtifact isolated(std::filesystem::temp_directory_path());
+    const auto isolated_root = isolated.file().parent_path();
+    setenv("XDG_CONFIG_HOME", isolated_root.c_str(), 1);
+    setenv("XDG_DATA_HOME", isolated_root.c_str(), 1);
     void *lib = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
     if (!lib)
       throw std::runtime_error(dlerror());
@@ -51,6 +68,29 @@ int main(int argc, char **argv) {
         "panel footer");
       require(panel->OnEvent(ftxui::Event::Character('d')), "voice state");
       require(panel->OnEvent(ftxui::Event::ArrowDown), "navigation");
+    }
+    {
+      auto panel = plugin->create_panel("音声設定", host);
+      auto focused_label = [&](const std::string &label) {
+        auto screen =
+          ftxui::Screen::Create(ftxui::Dimension::Fixed(80), ftxui::Dimension::Fixed(24));
+        ftxui::Render(screen, panel->Render());
+        for (int y = 0; y < screen.dimy(); ++y)
+          for (int x = 0; x < screen.dimx(); ++x)
+            if (screen.PixelAt(x, y).character == label &&
+              screen.PixelAt(x, y).foreground_color == pawingo::ui::accent)
+              return true;
+        return false;
+      };
+      require(focused_label("c"), "initial core input has an accent focus label");
+      panel->OnEvent(ftxui::Event::Tab);
+      require(focused_label("r"), "tab moves focus to runtime label");
+      for (int i = 0; i < 3; ++i)
+        panel->OnEvent(ftxui::Event::Tab);
+      panel->OnEvent(ftxui::Event::Return);
+      require(panel->OnEvent(ftxui::Event::Escape),
+        "escape cancels download before network access");
+      require(!panel->OnEvent(ftxui::Event::Escape), "escape returns after prompt cancellation");
     }
     char temporary[] = "/tmp/pawingo-japanese-test-XXXXXX";
     require(mkdtemp(temporary) != nullptr, "temporary resources");
@@ -105,10 +145,62 @@ int main(int argc, char **argv) {
         ftxui::Screen::Create(ftxui::Dimension::Fixed(100), ftxui::Dimension::Fixed(40));
       ftxui::Render(screen, panel->Render());
       auto content = screen.ToString();
-      require(content.find("already installed") != std::string::npos,
-        "reuse installed voice after reopening");
+      require(content.find("VOICEVOX CORE") != std::string::npos,
+        "voice shortcut opens offline configuration");
       require(content.find("Confirm") == std::string::npos, "no redundant download confirmation");
     }
+    const char *old_dictionary = std::getenv("PAWINGO_JMDICT");
+    const bool had_dictionary = old_dictionary != nullptr;
+    const std::string previous_dictionary = old_dictionary ? old_dictionary : "";
+    setenv("PAWINGO_JMDICT", argv[2], 1);
+    auto backend = plugin->search("猫", "en");
+    require(backend.size() == 2 && backend[0].expression == "猫", "backend vocabulary search");
+    {
+      auto panel = plugin->create_panel("語彙検索", host);
+      require(bool(panel), "search panel");
+      const auto previous_redraws = host.redraws.load();
+      panel->OnEvent(ftxui::Event::Character("猫"));
+      panel->OnEvent(ftxui::Event::Return);
+      auto rendered = [&] {
+        auto screen =
+          ftxui::Screen::Create(ftxui::Dimension::Fixed(100), ftxui::Dimension::Fixed(40));
+        ftxui::Render(screen, panel->Render());
+        return screen.ToString();
+      };
+      auto wait_for = [&](const std::string &text) {
+        for (int i = 0; i < 100; ++i) {
+          if (rendered().find(text) != std::string::npos)
+            return true;
+          std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        return false;
+      };
+      require(wait_for("EDRDG"), "search results display source");
+      for (int i = 0; i < 100 && host.redraws.load() == previous_redraws; ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      require(host.redraws.load() > previous_redraws, "query completion requests a host redraw");
+      panel->OnEvent(ftxui::Event::CtrlS);
+      require(host.saved.size() == 1 && host.saved[0].expression == "猫" &&
+          host.saved[0].reading == "ねこ",
+        "save search result");
+      panel->OnEvent(ftxui::Event::Tab);
+      panel->OnEvent(ftxui::Event::Backspace);
+      panel->OnEvent(ftxui::Event::Backspace);
+      panel->OnEvent(ftxui::Event::Delete);
+      panel->OnEvent(ftxui::Event::Delete);
+      panel->OnEvent(ftxui::Event::Character("de"));
+      panel->OnEvent(ftxui::Event::Return);
+      require(wait_for("Katze"), "search target language input");
+      panel->OnEvent(ftxui::Event::CtrlD);
+      panel->OnEvent(ftxui::Event::Return);
+      require(panel->OnEvent(ftxui::Event::Escape), "cancel dictionary download confirmation");
+      require(panel->OnEvent(ftxui::Event::Escape), "close dictionary manager");
+      require(!panel->OnEvent(ftxui::Event::Escape), "search delegates back navigation to host");
+    }
+    if (had_dictionary)
+      setenv("PAWINGO_JMDICT", previous_dictionary.c_str(), 1);
+    else
+      unsetenv("PAWINGO_JMDICT");
     setenv("PATH", original_path.c_str(), 1);
     if (had_data)
       setenv("XDG_DATA_HOME", original_data.c_str(), 1);

@@ -10,9 +10,15 @@ run: build
     PAWINGO_PLUGIN_DIR="$(pwd)/build/plugins" xmake run pawingo
 
 test:
-    xmake build pawingo-tests japanese-tests
+    xmake build pawingo-tests japanese-tests japanese-dictionary-tests download-tests background-job-tests voicevox-tests voicevox-install-tests settings-tests
     xmake run pawingo-tests "$(pwd)/build/test-plugins/libtest-plugin.so"
-    xmake run japanese-tests "$(pwd)/build/plugins/libjapanese.so"
+    xmake run japanese-tests "$(pwd)/build/plugins/libjapanese.so" "$(pwd)/tests/fixtures/jmdict.xml"
+    xmake run japanese-dictionary-tests "$(pwd)/tests/fixtures/jmdict.xml"
+    xmake run download-tests
+    xmake run background-job-tests
+    xmake run voicevox-tests
+    xmake run voicevox-install-tests
+    xmake run settings-tests
 
 clean:
     xmake clean

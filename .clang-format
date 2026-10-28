@@ -25,3 +25,5 @@ PackParameters:
 PackArguments:
   BinPack: OnePerLine
 PackConstructorInitializers: Never
+SeparateDefinitionBlocks: Always
+MaxEmptyLinesToKeep: 1

@@ -1,9 +1,9 @@
-#include "pawingo/core.hpp"
+/// @file
+/// SQLite persistence adapter for shared learning data and resource policy.
+#include "pawingo/storage/store.hpp"
+#include "pawingo/config/settings.hpp"
 #include "pawingo_sql.hpp"
 #include <algorithm>
-#include <cstring>
-#include <dlfcn.h>
-#include <filesystem>
 #include <sqlite_orm/sqlite_orm.h>
 #include <stdexcept>
 #include <utility>
@@ -11,26 +11,31 @@
 namespace pawingo {
 namespace {
 using namespace sqlite_orm;
+
 template <typename Storage, typename Expression>
 void execute_insert(Storage &storage, Expression expression) {
   auto statement = storage.prepare(std::move(expression));
   storage.execute(statement);
 }
+
 struct ResourceRow {
   std::string id, name;
   int kind;
   std::string language, location;
   int enabled, priority;
 };
+
 struct PolicyRow {
   std::string service;
   int policy;
 };
+
 struct ReviewRow {
   std::int64_t id, vocabulary_id;
   int result;
   std::int64_t reviewed_at, next_review_at;
 };
+
 auto make_database(const std::string &path) {
   return make_storage(path,
     make_table("vocabulary",
@@ -61,6 +66,7 @@ auto make_database(const std::string &path) {
       make_column("next_review_at", &ReviewRow::next_review_at)));
 }
 } // namespace
+
 struct Store::Impl {
   struct Storage : decltype(make_database("")) {
     using Base = decltype(make_database(""));
@@ -69,7 +75,9 @@ struct Store::Impl {
     }
     using Base::get_connection;
   };
+
   Storage db;
+
   explicit Impl(const std::string &path)
     : db(path) {
     auto initialize = [](sqlite3 *connection) {
@@ -87,10 +95,13 @@ struct Store::Impl {
       initialize(db.get_connection().get());
   }
 };
+
 Store::Store(const std::string &path)
   : impl_(std::make_unique<Impl>(path)) {
 }
+
 Store::~Store() = default;
+
 void Store::save(const Vocabulary &v) {
   if (v.language.empty() || v.expression.empty() || v.meaning.empty() || v.source.empty())
     throw std::invalid_argument("vocabulary requires language, expression, meaning and source");
@@ -113,9 +124,11 @@ void Store::save(const Vocabulary &v) {
         v.source,
         v.context))));
 }
+
 std::vector<Vocabulary> Store::vocabulary() {
   return impl_->db.get_all<Vocabulary>(sqlite_orm::order_by(&Vocabulary::id));
 }
+
 void Store::put_resource(const Resource &r) {
   if (r.id.empty() || r.name.empty())
     throw std::invalid_argument("resource requires id and name");
@@ -144,6 +157,7 @@ void Store::put_resource(const Resource &r) {
           c(&ResourceRow::enabled) = excluded(&ResourceRow::enabled),
           c(&ResourceRow::priority) = excluded(&ResourceRow::priority)))));
 }
+
 std::vector<Resource> Store::resources(ResourceKind kind, const std::string &language) {
   using namespace sqlite_orm;
   auto rows = impl_->db.get_all<ResourceRow>(
@@ -155,14 +169,24 @@ std::vector<Resource> Store::resources(ResourceKind kind, const std::string &lan
     result.push_back({r.id, r.name, kind, r.language, r.location, r.enabled != 0, r.priority});
   return result;
 }
+
 OnlinePolicy Store::policy(const std::string &service) {
   auto row = impl_->db.get_pointer<PolicyRow>(service);
-  if (!row)
-    return OnlinePolicy::ask;
+  if (!row) {
+    const auto policy = config::application().text("services.default_policy");
+    if (policy == "ask")
+      return OnlinePolicy::ask;
+    if (policy == "allow")
+      return OnlinePolicy::allow;
+    if (policy == "offline")
+      return OnlinePolicy::offline;
+    throw std::runtime_error("Unknown default online-service policy.");
+  }
   return row->policy == 1 ? OnlinePolicy::allow
     : row->policy == 2    ? OnlinePolicy::offline
                           : OnlinePolicy::ask;
 }
+
 void Store::set_policy(const std::string &service, OnlinePolicy p) {
   if (service.empty())
     throw std::invalid_argument("service id is empty");
@@ -174,136 +198,15 @@ void Store::set_policy(const std::string &service, OnlinePolicy p) {
       on_conflict(&PolicyRow::service)
         .do_update(set(c(&PolicyRow::policy) = excluded(&PolicyRow::policy)))));
 }
+
 void Store::record_review(std::int64_t id, Match result, std::int64_t reviewed, std::int64_t next) {
   impl_->db.insert(ReviewRow{0, id, static_cast<int>(result), reviewed, next});
 }
+
 std::vector<std::int64_t> Store::review_timestamps(std::int64_t from, std::int64_t until) {
   using namespace sqlite_orm;
   return impl_->db.select(&ReviewRow::reviewed_at,
     where(c(&ReviewRow::reviewed_at) >= from && c(&ReviewRow::reviewed_at) < until),
     order_by(&ReviewRow::reviewed_at));
-}
-std::vector<Vocabulary> search_dictionaries(Store &store,
-  const std::vector<DictionaryProvider *> &providers,
-  const std::string &query,
-  const std::string &meaning_language,
-  const std::function<Consent(const DictionaryProvider &, const std::string &)> &ask) {
-  if (query.empty())
-    return {};
-  std::vector<Vocabulary> results;
-  auto collect = [&](DictionaryProvider &provider) {
-    auto entries = provider.search(query, meaning_language);
-    for (auto &entry : entries) {
-      if (entry.source.empty())
-        throw std::runtime_error("dictionary returned an entry without a source");
-      results.push_back(std::move(entry));
-    }
-  };
-  // Collect all local results before deciding whether network access is needed.
-  for (auto *provider : providers)
-    if (provider && !provider->online())
-      collect(*provider);
-  if (!results.empty())
-    return results;
-  for (auto *provider : providers) {
-    if (!provider || !provider->online())
-      continue;
-    auto policy = store.policy(provider->id());
-    if (policy == OnlinePolicy::offline)
-      continue;
-    if (policy == OnlinePolicy::ask) {
-      if (!ask)
-        continue;
-      auto consent = ask(*provider, query);
-      if (consent == Consent::deny)
-        continue;
-      if (consent == Consent::always)
-        store.set_policy(provider->id(), OnlinePolicy::allow);
-    }
-    collect(*provider);
-  }
-  return results;
-}
-struct Plugins::Impl {
-  struct Loaded {
-    void *handle;
-    const PluginDescriptor *descriptor;
-    LanguagePlugin *plugin;
-  };
-  std::vector<Loaded> loaded;
-  std::vector<std::string> errors;
-  ~Impl() {
-    for (auto it = loaded.rbegin(); it != loaded.rend(); ++it) {
-      // The destroy function and the object's vtable live in the shared library.
-      it->descriptor->destroy(it->plugin);
-      dlclose(it->handle);
-    }
-  }
-};
-Plugins::Plugins()
-  : impl_(std::make_unique<Impl>()) {
-}
-Plugins::~Plugins() = default;
-void Plugins::load(const std::string &path) {
-  void *handle = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
-  if (!handle)
-    throw std::runtime_error(dlerror());
-  try {
-    auto entry = reinterpret_cast<PluginEntry>(dlsym(handle, plugin_entry_symbol));
-    if (!entry)
-      throw std::runtime_error("missing plugin entry point");
-    const auto *d = entry();
-    if (!d || d->api_version != plugin_api_version || !d->abi_tag ||
-      std::strcmp(d->abi_tag, plugin_abi_tag) != 0 || !d->id || !*d->id || !d->name || !d->create ||
-      !d->destroy)
-      throw std::runtime_error("incompatible or invalid plugin descriptor");
-    for (const auto &p : impl_->loaded)
-      if (std::strcmp(p.descriptor->id, d->id) == 0)
-        throw std::runtime_error("duplicate plugin id");
-    auto *plugin = d->create();
-    if (!plugin)
-      throw std::runtime_error("plugin creation failed");
-    try {
-      impl_->loaded.push_back({handle, d, plugin});
-    } catch (...) {
-      d->destroy(plugin);
-      throw;
-    }
-  } catch (...) {
-    dlclose(handle);
-    throw;
-  }
-}
-void Plugins::discover(const std::string &directory) {
-  std::error_code ec;
-  if (!std::filesystem::exists(directory, ec)) {
-    if (ec)
-      impl_->errors.push_back(directory + ": " + ec.message());
-    return;
-  }
-  std::vector<std::filesystem::path> paths;
-  for (std::filesystem::directory_iterator it(directory, ec), end; !ec && it != end;
-    it.increment(ec))
-    if (it->path().extension() == ".so")
-      paths.push_back(it->path());
-  if (ec)
-    impl_->errors.push_back(directory + ": " + ec.message());
-  // Stable ordering makes duplicate-ID handling and the displayed panel order predictable.
-  std::sort(paths.begin(), paths.end());
-  for (const auto &p : paths)
-    try {
-      load(p.string());
-    } catch (const std::exception &e) {
-      impl_->errors.push_back(p.string() + ": " + e.what());
-    }
-}
-std::vector<LanguagePlugin *> Plugins::languages() const {
-  std::vector<LanguagePlugin *> out;
-  for (auto &p : impl_->loaded)
-    out.push_back(p.plugin);
-  return out;
-}
-const std::vector<std::string> &Plugins::errors() const {
-  return impl_->errors;
 }
 } // namespace pawingo

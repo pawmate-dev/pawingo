@@ -1,4 +1,5 @@
 #include "pawingo/core.hpp"
+#include "pawingo/plugin.hpp"
 #include <iostream>
 #include <sqlite3.h>
 #include <stdexcept>
@@ -12,19 +13,24 @@ public:
   bool remote;
   int calls = 0;
   bool has_result;
+
   Provider(bool remote, bool has_result)
     : remote(remote),
       has_result(has_result) {
   }
+
   std::string id() const override {
     return remote ? "remote" : "local";
   }
+
   std::string name() const override {
     return id();
   }
+
   bool online() const override {
     return remote;
   }
+
   std::vector<pawingo::Vocabulary> search(const std::string &, const std::string &) override {
     ++calls;
     return has_result
@@ -32,10 +38,12 @@ public:
       : std::vector<pawingo::Vocabulary>{};
   }
 };
+
 void require(bool condition, const char *message) {
   if (!condition)
     throw std::runtime_error(message);
 }
+
 int main(int argc, char **argv) {
   try {
     require(argc == 2, "plugin path required");

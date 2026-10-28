@@ -1,4 +1,5 @@
 #include "pawingo/core.hpp"
+#include "pawingo/plugin.hpp"
 #include "pawingo/ui/theme.hpp"
 #include <algorithm>
 #include <array>
@@ -13,14 +14,40 @@
 #include <string>
 #include <vector>
 
+namespace config = pawingo::config;
+
 namespace {
+using pawingo::config::ui_text;
+
+class UiHost : public pawingo::Host, public pawingo::UiRefresh {
+public:
+  UiHost(pawingo::Store &store, ftxui::ScreenInteractive &screen)
+    : store_(store),
+      screen_(screen) {
+  }
+
+  void save(const pawingo::Vocabulary &word) override {
+    store_.save(word);
+  }
+
+  std::vector<pawingo::Resource> resources(pawingo::ResourceKind kind,
+    const std::string &language) override {
+    return store_.resources(kind, language);
+  }
+
+  void request_redraw() override {
+    screen_.PostEvent(ftxui::Event::Custom);
+  }
+
+private:
+  pawingo::Store &store_;
+  ftxui::ScreenInteractive &screen_;
+};
+
 std::filesystem::path data_dir() {
-  if (const char *p = std::getenv("XDG_DATA_HOME"); p && *p)
-    return std::filesystem::path(p) / "pawingo";
-  if (const char *p = std::getenv("HOME"); p && *p)
-    return std::filesystem::path(p) / ".local/share/pawingo";
-  throw std::runtime_error("HOME and XDG_DATA_HOME are unset");
+  return pawingo::config::data_path("");
 }
+
 std::string date_key(std::time_t value) {
   std::tm local{};
   localtime_r(&value, &local);
@@ -28,20 +55,25 @@ std::string date_key(std::time_t value) {
   std::strftime(date, sizeof(date), "%Y-%m-%d", &local);
   return date;
 }
+
 ftxui::Element language_flag(const std::string &language) {
   using namespace ftxui;
-  if (language == "Japanese")
-    return text("🇯🇵");
-  if (language == "German")
-    return text("🇩🇪");
-  if (language == "English")
-    return text("🇬🇧");
+  for (const auto &row : pawingo::config::application().rows("languages"))
+    if (row.size() == 3 && row[0] == language)
+      return text(row[2]);
   return text("  ");
 }
+
 ftxui::Element activity(pawingo::Store &store) {
   using namespace ftxui;
   using namespace pawingo::ui;
-  constexpr int weeks = 14;
+  const auto &defaults = config::application();
+  const int weeks = defaults.integer("activity.weeks", 1, 52);
+  const int light = defaults.integer("activity.light_threshold", 1, 10000);
+  const int heavy = defaults.integer("activity.heavy_threshold", light, 10000);
+  const auto marks = defaults.strings("activity.marks");
+  if (marks.size() != 4)
+    throw std::runtime_error("Activity calendar requires four marks.");
   const auto now = std::time(nullptr);
   std::tm today{};
   localtime_r(&now, &today);
@@ -73,12 +105,12 @@ ftxui::Element activity(pawingo::Store &store) {
     }
     const int count = counts[date];
     const bool today_cell = date == today_key;
-    const auto shade = today_cell ? accent : count == 0 ? faint : count < 6 ? olive : ink;
-    const std::string mark = today_cell ? "○"
-      : count == 0                      ? "·"
-      : count < 3                       ? "◦"
-      : count < 6                       ? "○"
-                                        : "●";
+    const auto shade = today_cell ? accent : count == 0 ? faint : count < heavy ? olive : ink;
+    const std::string mark = today_cell ? defaults.text("activity.today")
+      : count == 0                      ? marks[0]
+      : count < light                   ? marks[1]
+      : count < heavy                   ? marks[2]
+                                        : marks[3];
     rows[day % 7].push_back(hbox({text(mark) | color(shade), text("  ")}));
   }
   Elements graph;
@@ -87,19 +119,23 @@ ftxui::Element activity(pawingo::Store &store) {
   return vbox(std::move(graph));
 }
 } // namespace
+
 int main() {
   try {
     using namespace ftxui;
     using namespace pawingo::ui;
     auto directory = data_dir();
     std::filesystem::create_directories(directory);
-    pawingo::Store store((directory / "pawingo.sqlite3").string());
+    pawingo::Store store((directory / config::application().text("storage.database")).string());
     pawingo::Plugins plugins;
-    plugins.discover((directory / "plugins").string());
-    if (const char *path = std::getenv("PAWINGO_PLUGIN_DIR"); path && *path)
+    plugins.discover((directory / config::application().text("storage.plugins")).string());
+    if (const char *path =
+          std::getenv(config::application().text("storage.plugin_override_env").c_str());
+      path && *path)
       plugins.discover(path);
     auto languages = plugins.languages();
     auto screen = ScreenInteractive::Fullscreen();
+    UiHost ui_host(store, screen);
     enum class Page { home, features, panel, download };
     Page page = Page::home;
     int choice = 0;
@@ -117,14 +153,15 @@ int main() {
         content.push_back(text(""));
         content.push_back(text(""));
         if (languages.empty())
-          content.push_back(text("No plugins installed yet.") | color(muted) | hcenter);
+          content.push_back(text(ui_text("no_plugins_installed_yet")) | color(muted) | hcenter);
         for (std::size_t i = 0; i < languages.size(); ++i) {
           const bool selected = choice == static_cast<int>(i);
           const auto language = languages[i]->language();
-          const std::string native = language == "Japanese" ? "日本語"
-            : language == "German"                          ? "Deutsch"
-                                                            : language;
-          content.push_back(hbox({text(selected ? "●  " : "   ") | color(accent),
+          std::string native = language;
+          for (const auto &row : config::application().rows("languages"))
+            if (row.size() == 3 && row[0] == language)
+              native = row[1];
+          content.push_back(hbox({text(selection(selected)) | color(accent),
                               language_flag(language),
                               text("  "),
                               text(native) | color(selected ? ink : secondary),
@@ -132,14 +169,14 @@ int main() {
             hcenter);
         }
         content.push_back(text(""));
-        auto download = text("Get plugins") |
+        auto download = text(ui_text("get_plugins")) |
           color(choice == static_cast<int>(languages.size()) ? ink : secondary);
         content.push_back(
-          hbox({text(choice == static_cast<int>(languages.size()) ? "●  " : "   ") | color(accent),
+          hbox({text(selection(choice == static_cast<int>(languages.size()))) | color(accent),
             download}) |
           hcenter
         );
-        footer = "↑ ↓  select    enter  open    q  quit";
+        footer = ui_text("select_enter_open_q_quit");
         for (const auto &error : plugins.errors())
           content.push_back(paragraph(error) | color(accent));
       } else if (page == Page::features) {
@@ -149,27 +186,27 @@ int main() {
           hcenter);
         content.push_back(text(""));
         if (features.empty())
-          content.push_back(text("No learning features available."));
+          content.push_back(text(ui_text("no_learning_features_available")));
         for (std::size_t i = 0; i < features.size(); ++i) {
-          auto item =
-            text(std::string(feature == static_cast<int>(i) ? "●  " : "   ") + features[i]);
+          auto item = text(std::string(selection(feature == static_cast<int>(i))) + features[i]);
           if (feature == static_cast<int>(i))
             item = item | color(accent);
           content.push_back(item | hcenter);
         }
         content.push_back(text(""));
-        footer = "↑ ↓  select    enter  open    esc  back";
+        footer = ui_text("select_enter_open_esc_back");
       } else if (page == Page::download) {
-        content = {text("Get plugins") | color(ink),
+        content = {text(ui_text("get_plugins")) | color(ink),
           text(""),
-          text("No plugins available for download yet.") | color(secondary),
+          text(ui_text("no_plugins_available_for_download_yet")) | color(secondary),
           text("")};
-        footer = "esc  back";
+        footer = ui_text("esc_back");
       } else {
         content.push_back(plugin_panel->Render());
         if (auto *help = dynamic_cast<pawingo::PanelHelpProvider *>(current))
-          footer = help->panel_help(features[feature]) + "   ·   ";
-        footer += "esc  back";
+          footer = help->panel_help(features[feature]) +
+            config::application().text("theme.footer_separator");
+        footer += ui_text("esc_back");
       }
       auto body = vbox({wordmark(), text(""), text(""), vbox(std::move(content)) | color(ink)}) |
         size(WIDTH, EQUAL, content_width) | center | flex;
@@ -229,7 +266,7 @@ int main() {
           return true;
         }
         if (event == Event::Return && !features.empty()) {
-          plugin_panel = current->create_panel(features[feature], store);
+          plugin_panel = current->create_panel(features[feature], ui_host);
           if (plugin_panel)
             page = Page::panel;
           return true;

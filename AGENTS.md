@@ -45,6 +45,10 @@ shared product language across the host and every plugin.
 
 ## Interaction and implementation
 
+- Target cross-platform behavior. Use libraries for HTTPS and hashing rather than external commands.
+  Keep platform-specific process, audio, and plugin-loading code behind explicit adapters; an Arch
+  development environment does not make Unix APIs a portable default.
+
 - Use the alternate terminal buffer for the full-screen TUI and restore the terminal on exit.
 - Keep input responsive during speech, downloads, and other slow operations. Workers must be
   cancellable and joined before a plugin is unloaded.
@@ -65,3 +69,40 @@ shared product language across the host and every plugin.
   behavior.
 - Keep database migrations in independent SQL files. Use the existing ORM for ordinary persistence
   operations.
+
+## Engineering and API documentation
+
+Use Chitin's engineering conventions as the architectural reference, adapted to C++ rather than
+copied mechanically from Rust:
+
+- Keep domain data and algorithms independent of FTXUI. Shared models belong in `types.hpp`, host
+  capabilities in `host.hpp`, persistence in `storage/`, provider coordination in `learning/`, and
+  native loading in `plugins/`. The TUI composes these layers.
+- Keep library-specific transport details behind frontend-neutral request, result, and error types.
+  Prefer named request fields and strong units to long positional parameter lists.
+- Use `std::expected` and typed error categories for new recoverable service APIs. Convert errors
+  into display text only at the frontend boundary; do not distinguish failures by parsing strings.
+  Existing exception-based APIs must document what can fail.
+- Express resource and worker ownership with RAII. Background jobs must have one owner, reject
+  overlapping work where appropriate, propagate failures to a completion boundary, and join before
+  captured state or plugin code is released.
+- Use Doxygen-compatible English `///` documentation for public types and APIs, and `@file`
+  summaries where they clarify a module's responsibility. A simple accessor needs one sentence.
+  Complex behavior needs a summary, parameter and return semantics, failure behavior, and relevant
+  cancellation, lifetime, or mutation guarantees. Avoid boilerplate sections for trivial methods.
+- Document why an implementation constraint exists; do not narrate obvious statements. Keep docs
+  synchronized with implementation, especially around atomic commits, cleanup, and borrowed data.
+- Name focused tests by observable behavior. Assert error categories, cancellation, ownership,
+  persistence, and integration contracts rather than copying implementation steps into tests.
+
+## Configuration data
+
+- Maintain product defaults, service resources, learning content, presentation copy, and substantial
+  layout dimensions in the owning host/plugin YAML resources. Embed them through the shared xmake
+  mechanism; installed software must not depend on source-tree files or the working directory.
+- Keep YAML parsing behind frontend-neutral settings/contracts, validate types and bounds, and cache
+  settings used by parser/inference hot paths. Preserve existing user preferences when migrating
+  their storage format.
+- Keep executable invariants in code: protocol/API/ABI names, Unicode encoding, SQL/ORM schema,
+  units, event semantics, and hard safety ceilings. Keep build dependency declarations in xmake/Nix
+  and test expectations independent of the defaults they verify.

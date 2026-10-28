@@ -1,0 +1,54 @@
+# Official offline CPU bundle. Changes are embedded by xmake; no runtime YAML file is needed.
+# User resource paths and selected style IDs remain separate runtime preferences.
+schema: 1
+bundle: 0.16.3-cpu
+limits:
+  download_bytes: 134217728
+  timeout_seconds: 600
+platforms:
+  linux-arm64:
+    core: linux-arm64
+    runtime: linux-arm64
+    core_sha256: da18e53d73ffcadcf52b2fe183103302ac86b7753851d6a741ccf31f218201dc
+  linux-x64:
+    core: linux-x64
+    runtime: linux-x64
+    core_sha256: 26c0860e26aa1120c6f3a554adb5455925410de965f704062fff88cfd0307cd6
+  osx-arm64:
+    core: osx-arm64
+    runtime: osx-arm64
+    core_sha256: 73c57f6c4949ef50fdce1b674f90f9e5498a9df162ef89b57dd186a88d82dedf
+  osx-x64:
+    core: osx-x64
+    runtime: osx-x86_64
+    core_sha256: ba7bb8975473758601bd9326a33ec89bf0f318815705a8dc5010fcd1c51720ba
+  windows-x64:
+    core: windows-x64
+    runtime: win-x64
+    core_sha256: a06965e1167d4554c5caa61b5bab6879fed8091a9574cd46c050d1693c8663e1
+discovery:
+  core: [libvoicevox_core.so, voicevox_core.dll, libvoicevox_core.dylib]
+  runtime: [libvoicevox_onnxruntime.so.*, voicevox_onnxruntime.dll, libvoicevox_onnxruntime*.dylib]
+  dictionary: sys.dic
+  model: 0.vvm
+resources:
+  - name: core.zip
+    url: https://github.com/VOICEVOX/voicevox_core/releases/download/0.16.3/voicevox_core-{core}-0.16.3.zip
+    unpack: true
+    sha256: '{core_sha256}'
+  - name: runtime.tgz
+    url: https://github.com/VOICEVOX/onnxruntime-builder/releases/download/voicevox_onnxruntime-1.17.3/voicevox_onnxruntime-{runtime}-1.17.3.tgz
+    unpack: true
+  - name: dictionary.tgz
+    url: https://github.com/r9y9/open_jtalk/releases/download/v1.11.1/open_jtalk_dic_utf_8-1.11.tar.gz
+    unpack: true
+  - name: 0.vvm
+    url: https://github.com/VOICEVOX/voicevox_vvm/releases/download/0.16.0/0.vvm
+    unpack: false
+    sha256: 917e592cae92a02fb7668bd9e168df4e39c8ab2f5302c2be71906c70ec4e2df2
+  - name: TERMS.txt
+    url: https://github.com/VOICEVOX/voicevox_vvm/releases/download/0.16.0/TERMS.txt
+    unpack: false
+  - name: VOICE_LICENSES.txt
+    url: https://raw.githubusercontent.com/VOICEVOX/voicevox_vvm/0.16.0/README.md
+    unpack: false
