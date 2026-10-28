@@ -1,34 +1,30 @@
-#include "pawingo/plugin.hpp"
-#include "dictionary.hpp"
-#include "pawingo/io/temporary_artifact.hpp"
-#include "pawingo/tasks/background_job.hpp"
-#include "pawingo/ui/theme.hpp"
-#include "search_panel.hpp"
-#include "settings.hpp"
-#include "voicevox.hpp"
-#include "voicevox_panel.hpp"
-#include <array>
-#include <atomic>
+module;
 #include <cerrno>
-#include <chrono>
 #include <csignal>
-#include <cstdlib>
 #include <fcntl.h>
-#include <filesystem>
-#include <fstream>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/event.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/elements.hpp>
-#include <functional>
-#include <mutex>
 #include <spawn.h>
-#include <string>
 #include <sys/wait.h>
-#include <thread>
 #include <unistd.h>
-
+extern "C" {
 extern char **environ;
+}
+
+module pawingo.japanese.plugin;
+
+import std;
+import pawingo.plugin;
+import pawingo.japanese.dictionary;
+import pawingo.io;
+import pawingo.tasks;
+import pawingo.ui;
+import pawingo.japanese.search;
+import pawingo.japanese.settings;
+import pawingo.japanese.voicevox;
+import pawingo.japanese.voice_panel;
 
 namespace {
 using pawingo::japanese::kana_settings;
@@ -384,6 +380,6 @@ const pawingo::PluginDescriptor descriptor{pawingo::plugin_api_version,
   destroy};
 } // namespace
 
-extern "C" const pawingo::PluginDescriptor *pawingo_plugin_v1() {
-  return &descriptor;
+const pawingo::PluginDescriptor *pawingo::japanese::descriptor() {
+  return &::descriptor;
 }

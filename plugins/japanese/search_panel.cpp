@@ -1,15 +1,15 @@
-#include "search_panel.hpp"
-#include "pawingo/net/download.hpp"
-#include "pawingo/tasks/background_job.hpp"
-#include "pawingo/ui/theme.hpp"
-#include "settings.hpp"
-#include <algorithm>
-#include <atomic>
-#include <fstream>
+module;
+#include <ftxui/component/component.hpp>
 #include <ftxui/component/event.hpp>
 #include <ftxui/component/screen_interactive.hpp>
-#include <mutex>
-#include <thread>
+
+module pawingo.japanese.search;
+
+import std;
+import pawingo.net;
+import pawingo.tasks;
+import pawingo.ui;
+import pawingo.japanese.settings;
 
 namespace pawingo::japanese {
 namespace {

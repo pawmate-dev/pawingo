@@ -1,13 +1,13 @@
-#include "voicevox_install.hpp"
-#include "pawingo/net/download.hpp"
-#include "settings.hpp"
-#include "voicevox_manifest.hpp"
-#include <algorithm>
+module;
 #include <archive.h>
 #include <archive_entry.h>
-#include <array>
-#include <cstdlib>
-#include <fstream>
+
+module pawingo.japanese.install;
+
+import std;
+import pawingo.net;
+import pawingo.japanese.settings;
+import pawingo.japanese.manifest;
 
 namespace pawingo::japanese {
 namespace {

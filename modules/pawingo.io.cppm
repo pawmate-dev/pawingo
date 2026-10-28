@@ -1,11 +1,9 @@
-#pragma once
-#include <filesystem>
-#include <random>
-#include <stdexcept>
-#include <string>
+export module pawingo.io;
+
+import std;
 
 /// Standard-library ownership for temporary filesystem artifacts.
-namespace pawingo::io {
+export namespace pawingo::io {
 /// Owns a unique scratch directory and one candidate artifact path.
 class TemporaryArtifact {
 public:

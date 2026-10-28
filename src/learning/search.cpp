@@ -1,9 +1,7 @@
-/// @file
-/// Offline-first provider coordination, independent of the terminal renderer.
-#include "pawingo/learning/providers.hpp"
-#include "pawingo/storage/store.hpp"
-#include <stdexcept>
-#include <utility>
+module pawingo.learning;
+
+import std;
+import pawingo.storage;
 
 namespace pawingo {
 std::vector<Vocabulary> search_dictionaries(Store &store,

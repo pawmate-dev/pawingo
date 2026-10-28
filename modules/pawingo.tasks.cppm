@@ -1,14 +1,9 @@
-#pragma once
-#include <atomic>
-#include <exception>
-#include <functional>
-#include <stdexcept>
-#include <stop_token>
-#include <thread>
-#include <utility>
+export module pawingo.tasks;
+
+import std;
 
 /// Frontend-neutral ownership for cancellable background work.
-namespace pawingo::tasks {
+export namespace pawingo::tasks {
 /// Owns at most one worker and joins it before releasing its callbacks.
 class BackgroundJob {
 public:

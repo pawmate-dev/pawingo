@@ -1,12 +1,11 @@
-/// @file
-/// SQLite persistence adapter for shared learning data and resource policy.
-#include "pawingo/storage/store.hpp"
-#include "pawingo/config/settings.hpp"
-#include "pawingo_sql.hpp"
-#include <algorithm>
+module;
 #include <sqlite_orm/sqlite_orm.h>
-#include <stdexcept>
-#include <utility>
+
+module pawingo.storage;
+
+import std;
+import pawingo.config;
+import pawingo.assets.sql;
 
 namespace pawingo {
 namespace {

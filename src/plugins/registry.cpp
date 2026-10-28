@@ -1,12 +1,10 @@
-/// @file
-/// Native plugin loading and ownership; UI components must be released before unloading.
-#include "pawingo/plugins/registry.hpp"
-#include "pawingo/plugin.hpp"
-#include <algorithm>
-#include <cstring>
+module;
 #include <dlfcn.h>
-#include <filesystem>
-#include <stdexcept>
+
+module pawingo.plugins;
+
+import std;
+import pawingo.plugin;
 
 namespace pawingo {
 struct Plugins::Impl {

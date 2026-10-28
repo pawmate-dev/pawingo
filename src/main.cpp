@@ -1,18 +1,12 @@
-#include "pawingo/core.hpp"
-#include "pawingo/plugin.hpp"
-#include "pawingo/ui/theme.hpp"
-#include <algorithm>
-#include <array>
-#include <cstdlib>
-#include <ctime>
-#include <filesystem>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/elements.hpp>
-#include <iostream>
-#include <map>
-#include <string>
-#include <vector>
+#include <time.h>
+
+import std;
+import pawingo.core;
+import pawingo.plugin;
+import pawingo.ui;
 
 namespace config = pawingo::config;
 

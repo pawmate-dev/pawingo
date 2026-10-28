@@ -1,18 +1,12 @@
-#include "dictionary.hpp"
-#include "pawingo/io/temporary_artifact.hpp"
-#include "settings.hpp"
-#include <algorithm>
-#include <array>
-#include <cctype>
-#include <cstdlib>
-#include <exception>
+module;
 #include <expat.h>
-#include <fstream>
-#include <map>
-#include <mutex>
-#include <set>
-#include <stdexcept>
 #include <zlib.h>
+
+module pawingo.japanese.dictionary;
+
+import std;
+import pawingo.io;
+import pawingo.japanese.settings;
 
 namespace pawingo::japanese {
 namespace {

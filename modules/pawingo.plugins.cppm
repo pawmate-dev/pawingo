@@ -1,11 +1,10 @@
-#pragma once
-#include <memory>
-#include <string>
-#include <vector>
+export module pawingo.plugins;
+
+import std;
+export import pawingo.plugin;
 
 /// Registry ownership and discovery for native language plugins.
-namespace pawingo {
-class LanguagePlugin;
+export namespace pawingo {
 
 /// Owns loaded libraries and plugin instances, destroying instances before closing libraries.
 class Plugins {

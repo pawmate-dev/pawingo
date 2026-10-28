@@ -1,5 +1,7 @@
-#include "settings.hpp"
-#include "pawingo_voicevox_assets.hpp"
+module pawingo.japanese.settings;
+
+import std;
+import pawingo.japanese.assets;
 
 namespace pawingo::japanese {
 const config::Settings &settings() {

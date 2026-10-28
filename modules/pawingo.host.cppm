@@ -1,8 +1,10 @@
-#pragma once
-#include "pawingo/types.hpp"
+export module pawingo.host;
+
+import std;
+export import pawingo.types;
 
 /// Frontend-neutral services supplied to independently loaded language backends.
-namespace pawingo {
+export namespace pawingo {
 /// Services are provided by the host and remain valid until the plugin is destroyed.
 class Host {
 public:

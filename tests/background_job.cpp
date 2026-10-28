@@ -1,8 +1,5 @@
-#include "pawingo/tasks/background_job.hpp"
-#include <chrono>
-#include <iostream>
-#include <semaphore>
-#include <stdexcept>
+import std;
+import pawingo.tasks;
 
 namespace {
 void require(bool condition, const char *message) {

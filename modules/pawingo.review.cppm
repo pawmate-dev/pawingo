@@ -1,12 +1,7 @@
-module;
-#include "pawingo/config/settings.hpp"
-#include <algorithm>
-#include <cctype>
-#include <cstdint>
-#include <string>
-#include <string_view>
-
 export module pawingo.review;
+
+import std;
+import pawingo.config;
 
 export namespace pawingo::review {
 /// Collapses ASCII whitespace while preserving case and UTF-8 bytes.

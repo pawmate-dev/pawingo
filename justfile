@@ -9,7 +9,10 @@ build:
 run: build
     PAWINGO_PLUGIN_DIR="$(pwd)/build/plugins" xmake run pawingo
 
-test:
+check-modules:
+    xmake check-modules
+
+test: check-modules
     xmake build pawingo-tests japanese-tests japanese-dictionary-tests download-tests background-job-tests voicevox-tests voicevox-install-tests settings-tests
     xmake run pawingo-tests "$(pwd)/build/test-plugins/libtest-plugin.so"
     xmake run japanese-tests "$(pwd)/build/plugins/libjapanese.so" "$(pwd)/tests/fixtures/jmdict.xml"
@@ -24,5 +27,5 @@ clean:
     xmake clean
 
 fmt:
-    clang-format -i $(rg --files -g '*.c' -g '*.cc' -g '*.cpp' -g '*.cxx' -g '*.h' -g '*.hh' -g '*.hpp' -g '*.hxx' -g '*.cppm' -g '*.ixx')
+    clang-format -i $(rg --files src modules plugins tests -g '*.c' -g '*.cc' -g '*.cpp' -g '*.cxx' -g '*.h' -g '*.hh' -g '*.hpp' -g '*.hxx' -g '*.cppm' -g '*.ixx')
     rg --null --files -g '*.md' -g '!README*' | xargs -0 -r prettier --write --editorconfig --prose-wrap always

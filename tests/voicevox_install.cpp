@@ -1,9 +1,10 @@
-#include "../plugins/japanese/voicevox_install.hpp"
-#include "../plugins/japanese/voicevox_manifest.hpp"
 #include <archive.h>
 #include <archive_entry.h>
-#include <fstream>
-#include <iostream>
+
+import std;
+import pawingo.japanese.install;
+import pawingo.japanese.manifest;
+
 using namespace pawingo::japanese;
 
 void require(bool ok, const char *message) {

@@ -1,12 +1,10 @@
-#pragma once
-#include "pawingo/host.hpp"
-#include <functional>
-#include <memory>
-#include <string>
-#include <vector>
+export module pawingo.storage;
+
+import std;
+export import pawingo.host;
 
 /// Shared SQLite persistence, independent of language panels and the terminal renderer.
-namespace pawingo {
+export namespace pawingo {
 enum class OnlinePolicy { ask, allow, offline };
 
 /// Owns one SQLite connection. Persisted enum values form part of its schema.

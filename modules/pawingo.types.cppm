@@ -1,11 +1,9 @@
-#pragma once
+export module pawingo.types;
 
-#include <cstdint>
-#include <string>
-#include <vector>
+import std;
 
 /// Frontend-neutral vocabulary, assessment, and resource data shared by language backends.
-namespace pawingo {
+export namespace pawingo {
 /// A sourced definition suitable for lookup, collection, and review.
 struct Vocabulary {
   /// Language identifiers are supplied by the plugin; meaning_language identifies

@@ -1,19 +1,15 @@
-#include "pawingo/io/temporary_artifact.hpp"
-#include "pawingo/plugin.hpp"
-#include "pawingo/ui/theme.hpp"
-#include <atomic>
-#include <chrono>
-#include <cstdlib>
 #include <dlfcn.h>
-#include <filesystem>
-#include <fstream>
 #include <ftxui/component/event.hpp>
+#include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/screen.hpp>
-#include <iostream>
-#include <stdexcept>
+#include <stdlib.h>
 #include <sys/stat.h>
-#include <thread>
 #include <unistd.h>
+
+import std;
+import pawingo.io;
+import pawingo.plugin;
+import pawingo.ui;
 
 class Host : public pawingo::Host, public pawingo::UiRefresh {
 public:

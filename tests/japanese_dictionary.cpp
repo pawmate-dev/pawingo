@@ -1,11 +1,9 @@
-#include "../plugins/japanese/dictionary.hpp"
-#include <cstdlib>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <stdexcept>
+#include <stdlib.h>
 #include <unistd.h>
 #include <zlib.h>
+
+import std;
+import pawingo.japanese.dictionary;
 
 void require(bool condition, const char *message) {
   if (!condition)

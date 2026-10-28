@@ -1,21 +1,21 @@
-#include "voicevox.hpp"
-#include "pawingo/io/temporary_artifact.hpp"
-#include "settings.hpp"
+module;
 #include <yaml-cpp/yaml.h>
 #define VOICEVOX_LOAD_ONNXRUNTIME
 #include "voicevox_core.h"
 #define MINIAUDIO_IMPLEMENTATION
-#include <cstdlib>
-#include <fstream>
 #include <miniaudio.h>
-#include <mutex>
 #include <nlohmann/json.hpp>
-#include <thread>
 #ifdef _WIN32
 #include <windows.h>
 #else
 #include <dlfcn.h>
 #endif
+
+module pawingo.japanese.voicevox;
+
+import std;
+import pawingo.io;
+import pawingo.japanese.settings;
 
 namespace pawingo::japanese {
 namespace {

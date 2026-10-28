@@ -1,8 +1,10 @@
-#include "pawingo/config/settings.hpp"
-#include "pawingo_application_assets.hpp"
-#include <cstdlib>
-#include <stdexcept>
+module;
 #include <yaml-cpp/yaml.h>
+
+module pawingo.config;
+
+import std;
+import pawingo.assets.application;
 
 namespace pawingo::config {
 struct Settings::Impl {

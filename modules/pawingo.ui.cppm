@@ -1,10 +1,12 @@
-#pragma once
-#include "pawingo/config/settings.hpp"
-#include <algorithm>
+module;
 #include <ftxui/dom/elements.hpp>
-#include <stdexcept>
 
-namespace pawingo::ui {
+export module pawingo.ui;
+
+import std;
+export import pawingo.config;
+
+export namespace pawingo::ui {
 // Keep the terminal background transparent; colors carry semantic emphasis.
 inline ftxui::Color theme_color(const char *name) {
   auto values = config::application().integers(std::string("theme.colors.") + name);

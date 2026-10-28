@@ -1,13 +1,13 @@
-#pragma once
-
-#include "pawingo/host.hpp"
-#include <cstdint>
+module;
 #include <ftxui/component/component.hpp>
-#include <string>
-#include <vector>
+
+export module pawingo.plugin;
+
+import std;
+export import pawingo.host;
 
 /// Plugins and the host must use the same C++ ABI, standard library and FTXUI.
-namespace pawingo {
+export namespace pawingo {
 inline constexpr std::uint32_t plugin_api_version = 1;
 inline constexpr const char *plugin_entry_symbol = "pawingo_plugin_v1";
 
@@ -66,7 +66,7 @@ using PluginEntry = const PluginDescriptor *(*)();
 #else
 #define PAWINGO_COMPILER_TAG "unknown"
 #endif
-inline constexpr const char *plugin_abi_tag = PAWINGO_COMPILER_TAG ";ftxui-6.1.9;api-1";
+inline constexpr const char *plugin_abi_tag = PAWINGO_COMPILER_TAG ";ftxui-6.1.9;api-1;modules-1";
 } // namespace pawingo
 
 /// Export exactly this C symbol from a plugin:

@@ -1,7 +1,9 @@
-#pragma once
-#include "pawingo/config/settings.hpp"
+export module pawingo.japanese.settings;
 
-namespace pawingo::japanese {
+import std;
+export import pawingo.config;
+
+export namespace pawingo::japanese {
 /// Embedded language defaults and learning content, independent of FTXUI.
 const config::Settings &settings();
 const config::Settings &kana_settings();

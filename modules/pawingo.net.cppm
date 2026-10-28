@@ -1,15 +1,11 @@
-#pragma once
-#include "pawingo/config/settings.hpp"
-#include "pawingo/io/temporary_artifact.hpp"
-#include <chrono>
-#include <cstddef>
-#include <expected>
-#include <filesystem>
-#include <stop_token>
-#include <string>
+export module pawingo.net;
+
+import std;
+export import pawingo.config;
+export import pawingo.io;
 
 /// Frontend-neutral HTTPS transfer contracts and temporary-artifact ownership.
-namespace pawingo::net {
+export namespace pawingo::net {
 /// Failure categories that callers can handle without inspecting message text.
 enum class DownloadErrorKind {
   invalid_request, ///< Invalid URL, checksum, or configured transfer limits.

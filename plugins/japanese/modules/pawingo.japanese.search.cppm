@@ -1,10 +1,14 @@
-#pragma once
-#include "dictionary.hpp"
-#include "pawingo/plugin.hpp"
-#include <functional>
+module;
+#include <ftxui/component/component.hpp>
+
+export module pawingo.japanese.search;
+
+import std;
+export import pawingo.japanese.dictionary;
+export import pawingo.plugin;
 
 /// FTXUI presentation and host-service integration for Japanese vocabulary lookup.
-namespace pawingo::japanese {
+export namespace pawingo::japanese {
 /// Blocking speech adapter, invoked on a worker with cancellation; returns a UI status.
 using Speech = std::function<std::string(const std::string &, std::stop_token)>;
 

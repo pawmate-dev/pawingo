@@ -1,10 +1,9 @@
-#include "../plugins/japanese/voicevox.hpp"
-#include "pawingo/config/settings.hpp"
-#include "pawingo/io/temporary_artifact.hpp"
-#include <cstdlib>
-#include <fstream>
-#include <iostream>
-#include <stdexcept>
+#include <stdlib.h>
+import std;
+import pawingo.japanese.voicevox;
+import pawingo.config;
+import pawingo.io;
+
 using namespace pawingo::japanese;
 
 void require(bool condition, const char *message) {

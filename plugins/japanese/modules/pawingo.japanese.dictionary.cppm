@@ -1,11 +1,10 @@
-#pragma once
-#include "pawingo/types.hpp"
-#include <filesystem>
-#include <memory>
-#include <stop_token>
+export module pawingo.japanese.dictionary;
+
+import std;
+export import pawingo.types;
 
 /// Japanese dictionary parsing and lookup; no terminal, plugin-loader, or UI dependencies.
-namespace pawingo::japanese {
+export namespace pawingo::japanese {
 /// Returns the managed JMdict location using XDG_DATA_HOME or HOME.
 std::filesystem::path dictionary_path();
 /// Returns existing environment-override and managed dictionaries in lookup order.

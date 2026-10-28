@@ -1,13 +1,8 @@
-#pragma once
-#include <cstdint>
-#include <expected>
-#include <filesystem>
-#include <memory>
-#include <stop_token>
-#include <string>
-#include <vector>
+export module pawingo.japanese.voicevox;
 
-namespace pawingo::japanese {
+import std;
+
+export namespace pawingo::japanese {
 /// User-owned offline resources; paths point to files supplied by the official downloader.
 struct VoicevoxConfig {
   std::string core, runtime, dictionary, model;

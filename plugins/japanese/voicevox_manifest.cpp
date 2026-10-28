@@ -1,8 +1,10 @@
-#include "voicevox_manifest.hpp"
-#include "pawingo_voicevox_assets.hpp"
-#include <algorithm>
-#include <set>
+module;
 #include <yaml-cpp/yaml.h>
+
+module pawingo.japanese.manifest;
+
+import std;
+import pawingo.japanese.assets;
 
 namespace pawingo::japanese {
 namespace {

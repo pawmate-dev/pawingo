@@ -1,12 +1,8 @@
-#pragma once
-#include <filesystem>
-#include <map>
-#include <memory>
-#include <string>
-#include <string_view>
-#include <vector>
+export module pawingo.config;
 
-namespace pawingo::config {
+import std;
+
+export namespace pawingo::config {
 /// Immutable embedded YAML document. Conversion and validation failures throw std::runtime_error
 /// with the document/field name. YAML library objects never cross this frontend-neutral boundary.
 class Settings {

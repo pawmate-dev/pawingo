@@ -13,8 +13,8 @@ Pawingo is a quiet, spacious terminal learning environment. Its visual reference
 activity dots, warm text, a small terracotta accent, and generous negative space. Treat this as a
 shared product language across the host and every plugin.
 
-- Use `include/pawingo/ui/theme.hpp` for semantic colors and layout constants. Avoid unrelated
-  per-panel palettes.
+- Use `modules/pawingo.ui.cppm` (`import pawingo.ui;`) for semantic colors and layout constants.
+  Avoid unrelated per-panel palettes.
 - Preserve the terminal's background and transparency. Do not impose a background image or an opaque
   page fill.
 - Center the main content as a stable group. Use explicit content widths, bounded status regions,
@@ -75,9 +75,9 @@ shared product language across the host and every plugin.
 Use Chitin's engineering conventions as the architectural reference, adapted to C++ rather than
 copied mechanically from Rust:
 
-- Keep domain data and algorithms independent of FTXUI. Shared models belong in `types.hpp`, host
-  capabilities in `host.hpp`, persistence in `storage/`, provider coordination in `learning/`, and
-  native loading in `plugins/`. The TUI composes these layers.
+- Keep domain data and algorithms independent of FTXUI. Shared models belong in `pawingo.types`,
+  host capabilities in `pawingo.host`, persistence in `pawingo.storage`, provider coordination in
+  `pawingo.learning`, and native loading in `pawingo.plugins`. The TUI composes these layers.
 - Keep library-specific transport details behind frontend-neutral request, result, and error types.
   Prefer named request fields and strong units to long positional parameter lists.
 - Use `std::expected` and typed error categories for new recoverable service APIs. Convert errors
@@ -106,3 +106,18 @@ copied mechanically from Rust:
 - Keep executable invariants in code: protocol/API/ABI names, Unicode encoding, SQL/ORM schema,
   units, event semantics, and hard safety ceilings. Keep build dependency declarations in xmake/Nix
   and test expectations independent of the defaults they verify.
+
+## C++ modules
+
+- Use named modules throughout project-owned interfaces and implementations. Put exported interfaces
+  in `.cppm` files and declare the matching module in implementation units. Use `import` for project
+  dependencies and `import std;` for standard-library facilities; do not add project `.hpp` facades.
+- Keep third-party, C API, POSIX, and macro-dependent headers in global module fragments. Include
+  third-party declarations explicitly where needed; their names are not implicitly exported through
+  another module's global fragment.
+- Keep `main`, test entry translation units, and native C plugin adapters as small global-module
+  boundaries that import project modules. Generated YAML and SQL resources must also be modules.
+- Declare public module interfaces on the owning xmake library target and reuse it through target
+  dependencies. Do not recompile the same service implementation into every test executable.
+- Run `just check-modules` and the normal build/tests. Treat named-module ownership as part of the
+  plugin C++ ABI and reject incompatible pre-module binaries through the descriptor tag.

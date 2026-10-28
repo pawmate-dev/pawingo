@@ -1,9 +1,9 @@
-#pragma once
-#include "voicevox.hpp"
-#include <chrono>
-#include <string_view>
+export module pawingo.japanese.manifest;
 
-namespace pawingo::japanese {
+import std;
+export import pawingo.japanese.voicevox;
+
+export namespace pawingo::japanese {
 /// One verified download or archive in an ordered offline installation plan.
 struct VoicevoxResource {
   std::string name, url, sha256;

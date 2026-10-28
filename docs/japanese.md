@@ -113,3 +113,18 @@ Existing `voicevox.json` preferences are read when the YAML file does not exist.
 `voicevox.yaml` while preserving the old JSON file. YAML preferences take precedence thereafter. The
 plugin's bundled defaults, kana data, and ordinary interface copy live in its `resources/` YAML
 files; updating those build-time resources requires rebuilding the plugin.
+
+## Module linkage with the host
+
+`just build` builds the `pawingo` and `japanese` targets. Both reuse public interfaces from
+`pawingo-runtime`; `japanese-backend` additionally owns the `pawingo.japanese.*` interfaces,
+implementations, and embedded resources. xmake propagates public `.cppm` interfaces and builds BMIs
+in dependency order.
+
+The host imports shared contracts and loads the Japanese shared library at runtime. It does not
+import Japanese implementation modules. `plugins/japanese/entry.cpp` is the small C entry adapter;
+`pawingo.japanese.plugin` owns plugin behavior. Unit tests import backend modules directly, while
+native integration tests load the same built shared library as the host.
+
+The module migration changes C++ ABI ownership. Rebuild existing native plugins against the module
+SDK and matching toolchain; older header-based binaries fail the new `modules-1` ABI check.

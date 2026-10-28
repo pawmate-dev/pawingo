@@ -1,6 +1,5 @@
-#include "pawingo/net/download.hpp"
-#include <iostream>
-#include <stdexcept>
+import std;
+import pawingo.net;
 
 namespace {
 using namespace pawingo::net;

@@ -1,13 +1,14 @@
-#include "voicevox_panel.hpp"
-#include "pawingo/tasks/background_job.hpp"
-#include "pawingo/ui/theme.hpp"
-#include "settings.hpp"
-#include "voicevox_install.hpp"
+module;
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/event.hpp>
-#include <mutex>
-#include <optional>
-#include <sstream>
+
+module pawingo.japanese.voice_panel;
+
+import std;
+import pawingo.tasks;
+import pawingo.ui;
+import pawingo.japanese.settings;
+import pawingo.japanese.install;
 
 namespace pawingo::japanese {
 ftxui::Component voicevox_panel(std::shared_ptr<Voicevox> service, pawingo::Host &host) {

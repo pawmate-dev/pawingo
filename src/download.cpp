@@ -1,13 +1,10 @@
-/// @file
-/// libcurl adapter for the frontend-neutral download contract.
-#include "pawingo/net/download.hpp"
-#include <array>
+module;
 #include <curl/curl.h>
-#include <fstream>
-#include <limits>
-#include <memory>
 #include <picosha2.h>
-#include <stdexcept>
+
+module pawingo.net;
+
+import std;
 
 namespace pawingo::net {
 namespace {

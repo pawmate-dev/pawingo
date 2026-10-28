@@ -1,13 +1,10 @@
-#pragma once
-#include "pawingo/host.hpp"
-#include <functional>
-#include <memory>
-#include <string>
-#include <vector>
+export module pawingo.learning;
+
+import std;
+export import pawingo.storage;
 
 /// Provider contracts and offline-first orchestration.
-namespace pawingo {
-class Store;
+export namespace pawingo {
 /// Only "always" changes the persisted policy; "once" applies to this request.
 enum class Consent { deny, once, always };
 

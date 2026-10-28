@@ -1,11 +1,10 @@
-#include "pawingo/core.hpp"
-#include "pawingo/plugin.hpp"
-#include <iostream>
 #include <sqlite3.h>
-#include <stdexcept>
-#include <string>
+#include <stdlib.h>
 #include <unistd.h>
 
+import std;
+import pawingo.core;
+import pawingo.plugin;
 import pawingo.review;
 
 class Provider : public pawingo::DictionaryProvider {

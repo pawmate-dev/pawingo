@@ -1,6 +1,7 @@
 set_project("pawingo")
 set_version("0.2.0")
 set_languages("cxx26")
+set_policy("build.c++.modules", true)
 add_rules("mode.debug", "mode.release")
 add_requires("ftxui 6.1.9")
 add_requires("sqlite_orm v1.9.1")
@@ -12,10 +13,11 @@ add_requires("yaml-cpp >=0.8")
 
 
 -- Embed the maintained SQL files so installed binaries do not need a working directory.
-local function embed_sql(target)
+local function embed_sql(target, context)
+  local io, os, path, assert, table, ipairs = context.io, context.os, context.path, context.assert, context.table, context.ipairs
   local output_dir = path.join(os.projectdir(), "build", "generated")
-  local output = path.join(output_dir, "pawingo_sql.hpp")
-  local parts = {"#pragma once\nnamespace pawingo::sql {\n"}
+  local output = path.join(output_dir, "pawingo_sql.cppm")
+  local parts = {"export module pawingo.assets.sql;\nexport namespace pawingo::sql {\n"}
   local files = os.files(path.join(os.projectdir(), "sql", "*.sql"))
   table.sort(files)
   for _, file in ipairs(files) do
@@ -30,15 +32,15 @@ local function embed_sql(target)
   if not os.isfile(output) or io.readfile(output) ~= content then
     io.writefile(output, content)
   end
-  target:add("includedirs", output_dir)
+  target:add("files", output)
 end
 
 -- Rewrite generated headers only when data contents change; compiler dependencies handle rebuilds.
 -- Hook-local APIs must be passed explicitly: ordinary Lua helpers do not inherit xmake's hook sandbox.
-local function embed_assets(target, namespace_name, header_name, entries, context)
+local function embed_assets(target, namespace_name, module_name, header_name, entries, context)
   local io, os, path, assert, table, ipairs = context.io, context.os, context.path, context.assert, context.table, context.ipairs
   local output_dir = path.join(os.projectdir(), "build", "generated")
-  local parts = {"#pragma once\nnamespace " .. namespace_name .. " {\n"}
+  local parts = {"export module " .. module_name .. ";\nexport namespace " .. namespace_name .. " {\n"}
   for _, entry in ipairs(entries) do
     local content = io.readfile(path.join(os.projectdir(), entry[2]))
     assert(not content:find(")pawingo_asset\"", 1, true), "Resource contains raw string delimiter")
@@ -49,126 +51,120 @@ local function embed_assets(target, namespace_name, header_name, entries, contex
   local content = table.concat(parts)
   os.mkdir(output_dir)
   if not os.isfile(output) or io.readfile(output) ~= content then io.writefile(output, content) end
-  target:add("includedirs", output_dir)
+  target:add("files", output)
 end
 
-local function embed_voicevox(target)
+local function embed_voicevox(target, context)
+  local path, table, ipairs = context.path, context.table, context.ipairs
   local entries = {}
   for _, item in ipairs({{"voicevox_manifest", "voicevox.yaml"}, {"voicevox_runtime_terms", "voicevox-runtime-terms.txt"},
                          {"japanese_defaults", "defaults.yaml"}, {"japanese_kana", "kana.yaml"}, {"japanese_messages", "messages.yaml"}}) do
     table.insert(entries, {item[1], path.join("plugins", "japanese", "resources", item[2])})
   end
-  embed_assets(target, "pawingo::japanese::assets", "pawingo_voicevox_assets.hpp", entries, {io=io, os=os, path=path, assert=assert, table=table, ipairs=ipairs})
+  embed_assets(target, "pawingo::japanese::assets", "pawingo.japanese.assets", "pawingo_voicevox_assets.cppm", entries, context)
 end
 
-local function embed_application(target)
-  embed_assets(target, "pawingo::config::assets", "pawingo_application_assets.hpp",
-               {{"application", "resources/application.yaml"}}, {io=io, os=os, path=path, assert=assert, table=table, ipairs=ipairs})
+local function embed_application(target, context)
+  embed_assets(target, "pawingo::config::assets", "pawingo.assets.application", "pawingo_application_assets.cppm",
+               {{"application", "resources/application.yaml"}}, context)
 end
 
-local function common()
-  add_deps("pawingo-config")
-  add_includedirs("include")
-  add_packages("ftxui")
-end
-
-target("pawingo-config")
+-- Shared module interfaces/BMIs are compiled once, then propagated through target dependencies.
+target("pawingo-runtime")
   set_kind("static")
-  on_load(embed_application)
-  add_includedirs("include", {public = true})
-  add_packages("yaml-cpp", {public = true})
-  add_files("src/settings.cpp")
+  on_load(function (target)
+    local context = {io=io, os=os, path=path, assert=assert, table=table, ipairs=ipairs}
+    embed_sql(target, context)
+    embed_application(target, context)
+  end)
+  add_files("modules/*.cppm", {public = true})
+  add_files("src/settings.cpp", "src/download.cpp", "src/storage/store.cpp", "src/plugins/registry.cpp", "src/learning/search.cpp")
+  add_packages("ftxui", "yaml-cpp", "sqlite_orm", "libcurl", "picosha2", {public = true})
+  add_syslinks("sqlite3", "dl", "pthread", "m", {public = true})
+  if is_plat("linux", "macosx") then add_cxflags("-fPIC") end
+
+target("japanese-backend")
+  set_kind("static")
+  set_default(false)
+  on_load(function (target)
+    embed_voicevox(target, {io=io, os=os, path=path, assert=assert, table=table, ipairs=ipairs})
+  end)
+  add_deps("pawingo-runtime", {public = true})
+  add_files("plugins/japanese/modules/*.cppm", {public = true})
+  add_files("plugins/japanese/plugin.cpp", "plugins/japanese/dictionary.cpp", "plugins/japanese/search_panel.cpp", "plugins/japanese/voicevox.cpp", "plugins/japanese/settings.cpp", "plugins/japanese/voicevox_panel.cpp", "plugins/japanese/voicevox_install.cpp", "plugins/japanese/voicevox_manifest.cpp")
+  add_includedirs("third_party/voicevox")
+  add_packages("miniaudio", "nlohmann_json", "libarchive", "expat", "zlib", {public = true})
   if is_plat("linux", "macosx") then add_cxflags("-fPIC") end
 
 target("pawingo")
-  on_load(embed_sql)
   set_kind("binary")
-  common()
-  add_files("src/main.cpp", "src/storage/store.cpp", "src/plugins/registry.cpp", "src/learning/search.cpp", "src/review.cppm")
-  add_packages("sqlite_orm")
-  add_syslinks("sqlite3", "dl")
+  add_deps("pawingo-runtime")
+  add_files("src/main.cpp")
+
+target("japanese")
+  set_kind("shared")
+  set_default(false)
+  set_targetdir("build/plugins")
+  add_deps("japanese-backend")
+  add_files("plugins/japanese/entry.cpp")
 
 target("test-plugin")
   set_kind("shared")
   set_default(false)
   set_targetdir("build/test-plugins")
-  common()
-  add_files("tests/fixtures/plugin.cpp")
+  add_deps("pawingo-runtime")
+  add_files("tests/fixtures/plugin.cppm", "tests/fixtures/plugin.cpp")
 
-target("pawingo-tests")
-  on_load(embed_sql)
-  set_kind("binary")
-  set_default(false)
-  common()
-  add_files("tests/core.cpp", "src/storage/store.cpp", "src/plugins/registry.cpp", "src/learning/search.cpp", "src/review.cppm")
-  add_packages("sqlite_orm")
-  add_syslinks("sqlite3", "dl")
-  add_deps("test-plugin")
+for _, spec in ipairs({
+  {"pawingo-tests", "tests/core.cpp", "core"},
+  {"japanese-tests", "tests/japanese.cpp", "native"},
+  {"japanese-dictionary-tests", "tests/japanese_dictionary.cpp", "backend"},
+  {"download-tests", "tests/download.cpp", "runtime"},
+  {"background-job-tests", "tests/background_job.cpp", "runtime"},
+  {"voicevox-tests", "tests/voicevox.cpp", "backend"},
+  {"voicevox-install-tests", "tests/voicevox_install.cpp", "backend"},
+  {"settings-tests", "tests/settings.cpp", "runtime"}
+}) do
+  target(spec[1])
+    set_kind("binary")
+    set_default(false)
+    add_files(spec[2])
+    add_deps("pawingo-runtime")
+    if spec[3] == "backend" then add_deps("japanese-backend") end
+    if spec[3] == "core" then add_deps("test-plugin", {inherit = false}) end
+    if spec[3] == "native" then add_deps("japanese", {inherit = false}) end
+end
 
-target("japanese")
-  on_load(embed_voicevox)
-  set_kind("shared")
-  set_default(false)
-  set_targetdir("build/plugins")
-  common()
-  add_files("plugins/japanese/plugin.cpp", "plugins/japanese/dictionary.cpp", "plugins/japanese/search_panel.cpp", "plugins/japanese/voicevox.cpp", "plugins/japanese/settings.cpp", "plugins/japanese/voicevox_panel.cpp", "plugins/japanese/voicevox_install.cpp", "plugins/japanese/voicevox_manifest.cpp", "src/download.cpp")
-  add_includedirs("third_party/voicevox")
-  add_packages("miniaudio", "nlohmann_json", "libarchive", "yaml-cpp")
-  if is_plat("linux") then add_syslinks("dl", "pthread", "m") end
-  add_packages("expat", "zlib", "libcurl", "picosha2")
-
-target("japanese-tests")
-  set_kind("binary")
-  set_default(false)
-  common()
-  add_files("tests/japanese.cpp")
-  add_syslinks("dl")
-  add_deps("japanese")
-
-target("japanese-dictionary-tests")
-  on_load(embed_voicevox)
-  set_kind("binary")
-  set_default(false)
-  common()
-  add_files("tests/japanese_dictionary.cpp", "plugins/japanese/dictionary.cpp", "plugins/japanese/settings.cpp")
-  add_packages("expat", "zlib")
-
-target("download-tests")
-  add_deps("pawingo-config")
-  set_kind("binary")
-  set_default(false)
-  add_includedirs("include")
-  add_files("tests/download.cpp", "src/download.cpp")
-  add_packages("libcurl", "picosha2")
-
-target("background-job-tests")
-  set_kind("binary")
-  set_default(false)
-  add_includedirs("include")
-  add_files("tests/background_job.cpp")
-
-target("voicevox-tests")
-  on_load(embed_voicevox)
-  add_deps("pawingo-config")
-  set_kind("binary")
-  set_default(false)
-  add_includedirs("include", "third_party/voicevox")
-  add_files("tests/voicevox.cpp", "plugins/japanese/voicevox.cpp", "plugins/japanese/settings.cpp")
-  add_packages("miniaudio", "nlohmann_json")
-  if is_plat("linux") then add_syslinks("dl", "pthread", "m") end
-
-target("voicevox-install-tests")
-  add_deps("pawingo-config")
-  on_load(embed_voicevox)
-  set_kind("binary")
-  set_default(false)
-  add_includedirs("include")
-  add_files("tests/voicevox_install.cpp", "plugins/japanese/voicevox_install.cpp", "plugins/japanese/voicevox_manifest.cpp", "plugins/japanese/settings.cpp", "src/download.cpp")
-  add_packages("libarchive", "libcurl", "picosha2", "yaml-cpp")
-
-target("settings-tests")
-  set_kind("binary")
-  set_default(false)
-  add_deps("pawingo-config")
-  add_includedirs("include")
-  add_files("tests/settings.cpp")
+-- Guard the module-only project boundary while allowing native/vendor preprocessor adapters.
+task("check-modules")
+  set_menu {usage = "xmake check-modules", description = "Verify named-module project boundaries", options = {}}
+  on_run(function ()
+    local files = {}
+    for _, root in ipairs({"src", "modules", "plugins/japanese", "tests"}) do
+      for _, pattern in ipairs({"/**.cpp", "/**.cppm"}) do
+        for _, file in ipairs(os.files(root .. pattern)) do table.insert(files, file) end
+      end
+    end
+    local entries = {["src/main.cpp"]=true, ["plugins/japanese/entry.cpp"]=true, ["tests/fixtures/plugin.cpp"]=true}
+    for _, file in ipairs(files) do
+      local source = "\n" .. io.readfile(file)
+      for header in source:gmatch('#include%s*[<"]([^>"]+)[>"]') do
+        assert(not header:find("^pawingo/"), file .. ": project interfaces must use import")
+        if not header:find("[/.]") then
+          assert(header == "cerrno" or header == "csignal" or header == "cassert" or header == "version",
+                 file .. ": standard-library facilities must use import std, not " .. header)
+        end
+      end
+      for header in source:gmatch('#include%s+"([^"]+)"') do
+        assert(header == "voicevox_core.h", file .. ": project interfaces must use import, not #include " .. header)
+      end
+      if path.extension(file) == ".cppm" then
+        assert(source:find("\n%s*export%s+module%s+[%w_.]+%s*;"), file .. ": missing exported module declaration")
+      elseif not entries[file] and not file:find("^tests/") then
+        assert(source:find("\n%s*module%s+[%w_.]+%s*;"), file .. ": missing implementation module declaration")
+      end
+    end
+    assert(#os.files("include/pawingo/**.hpp") == 0, "Project public APIs belong in named modules")
+    assert(#os.files("plugins/japanese/*.hpp") == 0, "Japanese interfaces belong in named modules")
+    print("Module boundaries verified for %d source files", #files)
+  end)

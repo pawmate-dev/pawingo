@@ -1,6 +1,6 @@
-#include "pawingo/config/settings.hpp"
-#include <iostream>
-#include <stdexcept>
+import std;
+import pawingo.config;
+
 using pawingo::config::Settings;
 
 void require(bool ok, const char *message) {

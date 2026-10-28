@@ -1,9 +1,10 @@
-#pragma once
-#include "pawingo/io/temporary_artifact.hpp"
-#include "voicevox.hpp"
-#include <functional>
+export module pawingo.japanese.install;
 
-namespace pawingo::japanese {
+import std;
+export import pawingo.japanese.voicevox;
+export import pawingo.io;
+
+export namespace pawingo::japanese {
 /// Staged offline installation. Destroying an unaccepted candidate removes all downloaded files.
 struct VoicevoxInstallation {
   std::unique_ptr<io::TemporaryArtifact> scratch;
