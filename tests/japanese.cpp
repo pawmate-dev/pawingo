@@ -67,10 +67,15 @@ int main(int argc, char **argv) {
     }
     {
       auto panel = plugin->create_panel("音声設定", host);
-      auto focused_label = [&](const std::string &label) {
+      auto focused_label = [&](const std::string &label, const std::string &placeholder) {
         auto screen =
           ftxui::Screen::Create(ftxui::Dimension::Fixed(80), ftxui::Dimension::Fixed(24));
         ftxui::Render(screen, panel->Render());
+        const auto cursor = screen.cursor();
+        require(cursor.shape == ftxui::Screen::Cursor::BarBlinking &&
+            screen.PixelAt(cursor.x, cursor.y).character == placeholder,
+          "focused empty voice setting exposes its placeholder cursor");
+
         for (int y = 0; y < screen.dimy(); ++y)
           for (int x = 0; x < screen.dimx(); ++x)
             if (screen.PixelAt(x, y).character == label &&
@@ -78,15 +83,56 @@ int main(int argc, char **argv) {
               return true;
         return false;
       };
-      require(focused_label("c"), "initial core input has an accent focus label");
+      require(focused_label("c", "c"), "initial core input has an accent focus label");
       panel->OnEvent(ftxui::Event::Tab);
-      require(focused_label("r"), "tab moves focus to runtime label");
-      for (int i = 0; i < 3; ++i)
-        panel->OnEvent(ftxui::Event::Tab);
+      require(focused_label("r", "V"), "tab moves focus to runtime label");
+      panel->OnEvent(ftxui::Event::Tab);
+      require(focused_label("d", "O"), "dictionary path cursor");
+      panel->OnEvent(ftxui::Event::Tab);
+      require(focused_label("m", "v"), "voice model path cursor");
+      panel->OnEvent(ftxui::Event::Tab);
       panel->OnEvent(ftxui::Event::Return);
       require(panel->OnEvent(ftxui::Event::Escape),
         "escape cancels download before network access");
       require(!panel->OnEvent(ftxui::Event::Escape), "escape returns after prompt cancellation");
+    }
+    {
+      auto panel = plugin->create_panel("語彙検索", host);
+      auto render = [&] {
+        auto screen =
+          ftxui::Screen::Create(ftxui::Dimension::Fixed(80), ftxui::Dimension::Fixed(24));
+        ftxui::Render(screen,
+          ftxui::vbox({panel->Render() | ftxui::center | ftxui::flex, ftxui::text("footer")}));
+        return screen;
+      };
+      auto initial = render();
+      auto start = initial.cursor();
+      require(start.shape == ftxui::Screen::Cursor::BarBlinking,
+        "empty query exposes a visible IME cursor before any input");
+      require(initial.PixelAt(start.x, start.y).character == "w",
+        "empty query anchors at the first placeholder glyph");
+      panel->OnEvent(ftxui::Event::Character("猫"));
+      auto typed = render().cursor();
+      require(typed.x == start.x + 2 && typed.y == start.y,
+        "cursor advances by the committed CJK glyph width");
+      panel->OnEvent(ftxui::Event::Backspace);
+      auto erased = render().cursor();
+      require(erased.x == start.x && erased.y == start.y && erased.shape == start.shape,
+        "deleting the last glyph restores the empty input anchor");
+      panel->OnEvent(ftxui::Event::Tab);
+      auto target = render();
+      auto target_cursor = target.cursor();
+      require(target_cursor.x > start.x &&
+          target.PixelAt(target_cursor.x, target_cursor.y).character == "e",
+        "target-language focus owns the cursor");
+      panel->OnEvent(ftxui::Event::CtrlD);
+      panel->OnEvent(ftxui::Event::ArrowDown);
+      panel->OnEvent(ftxui::Event::Return);
+      auto file = render();
+      auto file_cursor = file.cursor();
+      require(file_cursor.shape == start.shape &&
+          file.PixelAt(file_cursor.x, file_cursor.y).character == "/",
+        "local dictionary import anchors the empty file input");
     }
     char temporary[] = "/tmp/pawingo-japanese-test-XXXXXX";
     require(mkdtemp(temporary) != nullptr, "temporary resources");

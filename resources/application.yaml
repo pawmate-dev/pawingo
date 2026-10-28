@@ -4,6 +4,8 @@ storage:
   database: pawingo.sqlite3
   plugins: plugins
   plugin_override_env: PAWINGO_PLUGIN_DIR
+diagnostics:
+  file: logs/pawingo.log
 theme:
   content_width: 72
   wordmark: P a w i n g o

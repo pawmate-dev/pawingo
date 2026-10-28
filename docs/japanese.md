@@ -35,8 +35,14 @@ English-only file cannot provide German definitions. Missing target definitions 
 result rather than silently substituting another language.
 
 Use Ctrl+S to save the selected result for review, preserving its reading, meaning language, and
-source. Ctrl+P pronounces its reading through the same optional local speech setup as the kana
-chart. Searches, imports, downloads, and speech run outside the input thread and are cancelled when
+source. Ctrl+P pronounces the selected word through the same optional local speech setup as the kana
+chart. VOICEVOX analyzes the original spelling to retain its predicted pitch accent, then compares
+the analyzed moras with the selected reading. Matching hiragana and katakana are equivalent. If the
+readings differ, it analyzes the selected reading instead, preserving that query's predicted accent
+and mora pitches. Long-vowel spelling differences trigger this conservative fallback as well.
+Predictions are not authoritative dictionary accent annotations; the current dictionary importer
+does not supply accent entries or user accent overrides. Legacy speech adapters receive the selected
+reading. Searches, imports, downloads, and speech run outside the input thread and are cancelled when
 leaving the panel.
 
 ### Offline dictionary management

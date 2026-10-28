@@ -14,6 +14,12 @@ struct VoicevoxStyle {
   std::uint32_t id;
   std::string name;
 };
+
+/// Original spelling provides accent context; an optional reading constrains homograph resolution.
+struct SpeechRequest {
+  std::string text;
+  std::string reading;
+};
 enum class VoicevoxErrorKind { configuration, runtime, audio, cancelled };
 
 struct VoicevoxError {
@@ -39,6 +45,12 @@ public:
   /// Synthesizes and plays UTF-8 text on the calling worker; no network access occurs.
   std::expected<void, VoicevoxError>
   speak(const VoicevoxConfig &, const std::string &, std::stop_token);
+  /// Preserves the spelling's predicted accent when its analyzed moras match the selected reading.
+  /// Otherwise analyzes the reading alone. Kana scripts are equivalent; long vowels and alternate
+  /// spellings are compared conservatively. Accent and mora pitches remain model predictions.
+  /// Cancellation is checked between analysis, synthesis and playback; native calls cannot stop.
+  std::expected<void, VoicevoxError>
+  speak(const VoicevoxConfig &, const SpeechRequest &, std::stop_token);
 
 private:
   struct Impl;

@@ -1,4 +1,5 @@
 module;
+#include <ftxui/component/component.hpp>
 #include <ftxui/dom/elements.hpp>
 
 export module pawingo.ui;
@@ -7,6 +8,13 @@ import std;
 export import pawingo.config;
 
 export namespace pawingo::ui {
+/// Creates a native input with an IME cursor anchored at its first cell while empty.
+/// Borrowed content must outlive the returned component. Native editing, scrolling and insert-mode
+/// handling are preserved; placeholder layout and text are unchanged. Nonempty inputs use FTXUI's
+/// normal glyph-aware cursor. This workaround targets the empty-input path in FTXUI 6.1.9.
+ftxui::Component
+text_input(std::string *content, std::string placeholder, ftxui::InputOption options = {});
+
 // Keep the terminal background transparent; colors carry semantic emphasis.
 inline ftxui::Color theme_color(const char *name) {
   auto values = config::application().integers(std::string("theme.colors.") + name);

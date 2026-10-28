@@ -56,7 +56,8 @@ struct Api {
   VV(voice_model_file_open);
   VV(voice_model_file_delete);
   VV(voice_model_file_create_metas_json);
-  VV(synthesizer_tts);
+  VV(synthesizer_create_audio_query);
+  VV(synthesizer_synthesis);
   VV(wav_free);
   VV(json_free);
   VV(error_result_to_message);
@@ -81,6 +82,41 @@ VoicevoxAccelerationMode acceleration_mode() {
 
 VoicevoxError failure(const std::exception &e) {
   return {VoicevoxErrorKind::runtime, e.what()};
+}
+
+// Fold only ordinary kana, without guessing that different long-vowel spellings are equivalent.
+std::string kana_key(const std::string &text) {
+  std::string result;
+  for (std::size_t i = 0; i < text.size();) {
+    if (i + 2 < text.size() && static_cast<unsigned char>(text[i]) == 0xe3 &&
+      (static_cast<unsigned char>(text[i + 1]) & 0xc0) == 0x80 &&
+      (static_cast<unsigned char>(text[i + 2]) & 0xc0) == 0x80) {
+      unsigned cp = ((text[i] & 0x0f) << 12) | ((text[i + 1] & 0x3f) << 6) | (text[i + 2] & 0x3f);
+      if (cp >= 0x30a1 && cp <= 0x30f6) {
+        cp -= 0x60;
+        result += static_cast<char>(0xe0 | (cp >> 12));
+        result += static_cast<char>(0x80 | ((cp >> 6) & 0x3f));
+        result += static_cast<char>(0x80 | (cp & 0x3f));
+        i += 3;
+        continue;
+      }
+    }
+    result += text[i++];
+  }
+  return result;
+}
+
+bool matches_reading(const char *query, const std::string &reading) {
+  auto document = Json::parse(query);
+  std::string pronunciation;
+  for (const auto &phrase : document.at("accent_phrases")) {
+    // A pause is not part of a single dictionary reading; do not silently discard it.
+    if (phrase.contains("pause_mora") && !phrase.at("pause_mora").is_null())
+      return false;
+    for (const auto &mora : phrase.at("moras"))
+      pronunciation += mora.at("text").get<std::string>();
+  }
+  return !pronunciation.empty() && kana_key(pronunciation) == kana_key(reading);
 }
 } // namespace
 
@@ -202,6 +238,11 @@ std::expected<std::vector<VoicevoxStyle>, VoicevoxError> Voicevox::styles(const 
 
 std::expected<void, VoicevoxError>
 Voicevox::speak(const VoicevoxConfig &c, const std::string &text, std::stop_token stop) {
+  return speak(c, SpeechRequest{.text = text}, stop);
+}
+
+std::expected<void, VoicevoxError>
+Voicevox::speak(const VoicevoxConfig &c, const SpeechRequest &request, std::stop_token stop) {
   std::lock_guard lock(impl_->mutex);
   auto cancelled = [&] {
     return std::unexpected(VoicevoxError{VoicevoxErrorKind::cancelled, "Speech cancelled."});
@@ -232,10 +273,25 @@ Voicevox::speak(const VoicevoxConfig &c, const std::string &text, std::stop_toke
     }
     if (stop.stop_requested())
       return cancelled();
+    auto analyze = [&](const std::string &text) {
+      char *raw = nullptr;
+      a.check(a.synthesizer_create_audio_query(impl_->synth, text.c_str(), c.style, &raw));
+      return std::unique_ptr<char, decltype(a.json_free)>(raw, a.json_free);
+    };
+    const auto &text = request.text.empty() ? request.reading : request.text;
+    auto query = analyze(text);
+    if (stop.stop_requested())
+      return cancelled();
+    if (!request.reading.empty() && !matches_reading(query.get(), request.reading)) {
+      query = analyze(request.reading);
+      if (stop.stop_requested())
+        return cancelled();
+    }
     uintptr_t length = 0;
     uint8_t *bytes = nullptr;
-    a.check(a.synthesizer_tts(impl_->synth,
-      text.c_str(),
+    // Pass the original query through, preserving phrase accents and all predicted mora pitches.
+    a.check(a.synthesizer_synthesis(impl_->synth,
+      query.get(),
       c.style,
       {settings().flag("tts.interrogative_upspeak")},
       &length,

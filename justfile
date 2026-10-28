@@ -13,13 +13,14 @@ check-modules:
     xmake check-modules
 
 test: check-modules
-    xmake build pawingo-tests japanese-tests japanese-dictionary-tests download-tests background-job-tests voicevox-tests voicevox-install-tests settings-tests
+    xmake build pawingo-tests japanese-tests japanese-dictionary-tests download-tests background-job-tests diagnostics-tests voicevox-tests voicevox-install-tests settings-tests
     xmake run pawingo-tests "$(pwd)/build/test-plugins/libtest-plugin.so"
     xmake run japanese-tests "$(pwd)/build/plugins/libjapanese.so" "$(pwd)/tests/fixtures/jmdict.xml"
     xmake run japanese-dictionary-tests "$(pwd)/tests/fixtures/jmdict.xml"
     xmake run download-tests
     xmake run background-job-tests
-    xmake run voicevox-tests
+    xmake run diagnostics-tests
+    xmake run voicevox-tests "$(pwd)/build/test-plugins/libvoicevox-test-runtime.so"
     xmake run voicevox-install-tests
     xmake run settings-tests
 

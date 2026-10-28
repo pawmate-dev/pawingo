@@ -78,7 +78,7 @@ target("pawingo-runtime")
     embed_application(target, context)
   end)
   add_files("modules/*.cppm", {public = true})
-  add_files("src/settings.cpp", "src/download.cpp", "src/storage/store.cpp", "src/plugins/registry.cpp", "src/learning/search.cpp")
+  add_files("src/settings.cpp", "src/ui/input.cpp", "src/io/diagnostics.cpp", "src/download.cpp", "src/storage/store.cpp", "src/plugins/registry.cpp", "src/learning/search.cpp")
   add_packages("ftxui", "yaml-cpp", "sqlite_orm", "libcurl", "picosha2", {public = true})
   add_syslinks("sqlite3", "dl", "pthread", "m", {public = true})
   if is_plat("linux", "macosx") then add_cxflags("-fPIC") end
@@ -115,12 +115,21 @@ target("test-plugin")
   add_deps("pawingo-runtime")
   add_files("tests/fixtures/plugin.cppm", "tests/fixtures/plugin.cpp")
 
+target("voicevox-test-runtime")
+  set_kind("shared")
+  set_default(false)
+  set_targetdir("build/test-plugins")
+  add_files("tests/fixtures/voicevox.cpp")
+  add_includedirs("third_party/voicevox")
+  set_symbols("debug")
+
 for _, spec in ipairs({
   {"pawingo-tests", "tests/core.cpp", "core"},
   {"japanese-tests", "tests/japanese.cpp", "native"},
   {"japanese-dictionary-tests", "tests/japanese_dictionary.cpp", "backend"},
   {"download-tests", "tests/download.cpp", "runtime"},
   {"background-job-tests", "tests/background_job.cpp", "runtime"},
+  {"diagnostics-tests", "tests/diagnostics.cpp", "runtime"},
   {"voicevox-tests", "tests/voicevox.cpp", "backend"},
   {"voicevox-install-tests", "tests/voicevox_install.cpp", "backend"},
   {"settings-tests", "tests/settings.cpp", "runtime"}
@@ -133,6 +142,7 @@ for _, spec in ipairs({
     if spec[3] == "backend" then add_deps("japanese-backend") end
     if spec[3] == "core" then add_deps("test-plugin", {inherit = false}) end
     if spec[3] == "native" then add_deps("japanese", {inherit = false}) end
+    if spec[1] == "voicevox-tests" then add_deps("voicevox-test-runtime", {inherit = false}) end
 end
 
 -- Guard the module-only project boundary while allowing native/vendor preprocessor adapters.

@@ -97,9 +97,10 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary, Host &host, Spe
   options.transform = [](InputState input) {
     return input.element | color(input.is_placeholder ? muted : input.focused ? ink : secondary);
   };
-  auto query = Input(&state->query, ui_text("word_reading_or_meaning"), options);
-  auto target = Input(&state->target, settings().text("dictionary.target"), options);
-  auto file = Input(&state->file, ui_text("path_to_jmdict_xml_gz"), options);
+  auto query = pawingo::ui::text_input(&state->query, ui_text("word_reading_or_meaning"), options);
+  auto target =
+    pawingo::ui::text_input(&state->target, settings().text("dictionary.target"), options);
+  auto file = pawingo::ui::text_input(&state->file, ui_text("path_to_jmdict_xml_gz"), options);
   auto fields = Container::Vertical({query, target, file}, &state->field);
   auto initial_paths = panel_dictionary_paths(host);
   if (initial_paths.empty())
@@ -298,9 +299,10 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary, Host &host, Spe
           }
         } else if (!state->job.running()) {
           message(*state, ui_text("playing"));
-          launch(*state, [state = state.get(), speech, text = word.reading](std::stop_token stop) {
-            message(*state, speech(text, stop));
-          });
+          launch(*state,
+            [state = state.get(), speech, word = std::move(word)](std::stop_token stop) {
+              message(*state, speech(word, stop));
+            });
         }
         return true;
       }

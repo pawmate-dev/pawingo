@@ -3,6 +3,13 @@
 Pawingo follows Chitin's dependency direction and proportionate API documentation conventions,
 adapted to C++26 and native FTXUI plugins.
 
+The host redirects process stderr to the append-only `logs/pawingo.log` beneath its data directory
+before loading plugins. `pawingo.io::DiagnosticLog` captures native runtime diagnostics without
+changing stdout or the terminal background. Its scope outlives plugin workers and restores stderr
+before startup failures reach the outer exception handler. The relative log path belongs to
+`diagnostics.file` in the embedded application YAML. Redirection has explicit POSIX and Windows CRT
+adapters and is owned by the host, rather than toggled around individual asynchronous operations.
+
 ## Named-module layers
 
 Project interfaces are C++26 named modules, not textual headers. Public interfaces live in
@@ -46,6 +53,15 @@ is unchanged, but its ABI tag rejects old binaries. Native entry adapters explic
 symbol (`dllexport` on Windows and default symbol visibility on ELF/Mach-O); C++ module `export`
 alone does not export a symbol from a shared library. Compiler, standard library, flags, and FTXUI
 compatibility still apply; BMIs are compiler-specific build artifacts.
+
+## Text input and IME positioning
+
+Use `pawingo::ui::text_input` for editable fields. FTXUI 6.1.9's empty-input placeholder path
+has no hardware cursor shape; the screen can consequently park the cursor at its bottom-right
+corner while the input method is composing uncommitted text. The shared adapter anchors that
+focused empty state to one cell at the input's start. Placeholder painting, dimensions, and mouse
+hitboxes are preserved. Once content exists, native FTXUI cursor movement and scrolling apply,
+including CJK glyph widths and externally borrowed insert-mode state.
 
 ## Lifetimes and failure handling
 

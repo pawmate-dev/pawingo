@@ -4,6 +4,24 @@ import std;
 
 /// Standard-library ownership for temporary filesystem artifacts.
 export namespace pawingo::io {
+/// Routes process stderr to an append-only diagnostic file while a full-screen UI owns the
+/// terminal. Captures native libraries as well as C/C++ diagnostics; stdout remains available for
+/// rendering. Construct before starting workers and destroy after joining them. Scopes must unwind
+/// in reverse order; concurrent redirection or closing stderr is unsupported. Destruction restores
+/// stderr.
+class DiagnosticLog {
+public:
+  /// Creates parent directories and redirects stderr; throws std::system_error or filesystem_error
+  /// on failure, leaving the previous destination intact if redirection cannot be installed.
+  explicit DiagnosticLog(const std::filesystem::path &file);
+  ~DiagnosticLog();
+  DiagnosticLog(const DiagnosticLog &) = delete;
+  DiagnosticLog &operator=(const DiagnosticLog &) = delete;
+
+private:
+  int saved_ = -1;
+};
+
 /// Owns a unique scratch directory and one candidate artifact path.
 class TemporaryArtifact {
 public:

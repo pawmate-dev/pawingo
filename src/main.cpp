@@ -7,6 +7,7 @@ import std;
 import pawingo.core;
 import pawingo.plugin;
 import pawingo.ui;
+import pawingo.io;
 
 namespace config = pawingo::config;
 
@@ -120,6 +121,10 @@ int main() {
     using namespace pawingo::ui;
     auto directory = data_dir();
     std::filesystem::create_directories(directory);
+    // Native runtimes may log from their own threads; keep stderr away from the terminal until
+    // panels, workers and plugins have been destroyed, including during exception unwinding.
+    pawingo::io::DiagnosticLog diagnostics(directory /
+      config::application().text("diagnostics.file"));
     pawingo::Store store((directory / config::application().text("storage.database")).string());
     pawingo::Plugins plugins;
     plugins.discover((directory / config::application().text("storage.plugins")).string());

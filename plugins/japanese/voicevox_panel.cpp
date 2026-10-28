@@ -44,11 +44,15 @@ ftxui::Component voicevox_panel(std::shared_ptr<Voicevox> service, pawingo::Host
     return text(std::string(selection(entry.focused, true)) + entry.label) |
       color(entry.focused ? accent : secondary);
   };
-  auto core = Input(&s->config.core, ui_text("core_library_file"), input_options);
-  auto runtime = Input(&s->config.runtime, ui_text("voicevox_onnx_runtime_file"), input_options);
-  auto dictionary =
-    Input(&s->config.dictionary, ui_text("open_jtalk_dictionary_directory"), input_options);
-  auto model = Input(&s->config.model, ui_text("voice_model_vvm_file"), input_options);
+  auto core = pawingo::ui::text_input(&s->config.core, ui_text("core_library_file"), input_options);
+  auto runtime = pawingo::ui::text_input(&s->config.runtime,
+    ui_text("voicevox_onnx_runtime_file"),
+    input_options);
+  auto dictionary = pawingo::ui::text_input(&s->config.dictionary,
+    ui_text("open_jtalk_dictionary_directory"),
+    input_options);
+  auto model =
+    pawingo::ui::text_input(&s->config.model, ui_text("voice_model_vvm_file"), input_options);
   auto notify = [&host] {
     if (auto *ui = dynamic_cast<pawingo::UiRefresh *>(&host))
       ui->request_redraw();

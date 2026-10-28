@@ -49,6 +49,8 @@ shared product language across the host and every plugin.
   Keep platform-specific process, audio, and plugin-loading code behind explicit adapters; an Arch
   development environment does not make Unix APIs a portable default.
 
+- Use `pawingo::ui::text_input` for editable fields so empty inputs publish a correct IME cursor
+  position before composition is committed.
 - Use the alternate terminal buffer for the full-screen TUI and restore the terminal on exit.
 - Keep input responsive during speech, downloads, and other slow operations. Workers must be
   cancellable and joined before a plugin is unloaded.

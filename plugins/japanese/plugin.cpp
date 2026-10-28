@@ -149,7 +149,9 @@ void start(State &s, std::function<void(std::stop_token)> task) {
   });
 }
 
-void speak(State &s, const std::string &text, std::stop_token stop) {
+void speak(State &s, const pawingo::japanese::SpeechRequest &request, std::stop_token stop) {
+  const auto &text = request.text;
+  const auto &reading = request.reading;
 
   auto config = pawingo::japanese::Voicevox::load_config();
   if (!config) {
@@ -157,7 +159,7 @@ void speak(State &s, const std::string &text, std::stop_token stop) {
     return;
   }
   if (!config->core.empty()) {
-    auto result = s.voicevox->speak(*config, text, stop);
+    auto result = s.voicevox->speak(*config, request, stop);
     set_message(s, result ? "" : result.error().message);
     return;
   }
@@ -167,7 +169,7 @@ void speak(State &s, const std::string &text, std::stop_token stop) {
     pawingo::io::TemporaryArtifact input(std::filesystem::temp_directory_path());
     pawingo::io::TemporaryArtifact output(std::filesystem::temp_directory_path());
     std::ofstream file(input.file());
-    file << text;
+    file << (reading.empty() ? text : reading);
     file.close();
     int result = file ? run({settings().text("tts.legacy.open_jtalk"),
                               "-x",
@@ -189,7 +191,10 @@ void speak(State &s, const std::string &text, std::stop_token stop) {
   }
   if (stop.stop_requested())
     return;
-  if (run({settings().text("tts.legacy.espeak"), "-v", settings().text("plugin.language"), text},
+  if (run({settings().text("tts.legacy.espeak"),
+            "-v",
+            settings().text("plugin.language"),
+            reading.empty() ? text : reading},
         stop) != 0)
     set_message(s, ui_text("speech_unavailable_install_espeak_ng_or"));
   else
@@ -263,7 +268,7 @@ ftxui::Component panel(pawingo::Host &host,
         std::string text = kana[state->selected].hira;
         set_message(*state, ui_text("playing"));
         start(*state, [ptr = state.get(), text](std::stop_token stop) {
-          speak(*ptr, text, stop);
+          speak(*ptr, {.text = text}, stop);
         });
       }
       return true;
@@ -341,10 +346,10 @@ public:
     if (id == feature_labels[1]) {
       auto search = pawingo::japanese::search_panel(dictionary_,
         host,
-        [service = voicevox_](const std::string &text, std::stop_token stop) {
+        [service = voicevox_](const pawingo::Vocabulary &word, std::stop_token stop) {
           State state;
           state.voicevox = service;
-          speak(state, text, stop);
+          speak(state, {.text = word.expression, .reading = word.reading}, stop);
           return state.message;
         });
       search_help_ = std::move(search.help);
