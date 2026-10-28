@@ -56,12 +56,12 @@ compatibility still apply; BMIs are compiler-specific build artifacts.
 
 ## Text input and IME positioning
 
-Use `pawingo::ui::text_input` for editable fields. FTXUI 6.1.9's empty-input placeholder path
-has no hardware cursor shape; the screen can consequently park the cursor at its bottom-right
-corner while the input method is composing uncommitted text. The shared adapter anchors that
-focused empty state to one cell at the input's start. Placeholder painting, dimensions, and mouse
-hitboxes are preserved. Once content exists, native FTXUI cursor movement and scrolling apply,
-including CJK glyph widths and externally borrowed insert-mode state.
+Use `pawingo::ui::text_input` for editable fields. FTXUI 6.1.9's empty-input placeholder path has no
+hardware cursor shape; the screen can consequently park the cursor at its bottom-right corner while
+the input method is composing uncommitted text. The shared adapter anchors that focused empty state
+to one cell at the input's start. Placeholder painting, dimensions, and mouse hitboxes are
+preserved. Once content exists, native FTXUI cursor movement and scrolling apply, including CJK
+glyph widths and externally borrowed insert-mode state.
 
 ## Lifetimes and failure handling
 
@@ -105,13 +105,78 @@ restrictions, candidate ownership, and atomic installation. Runtime user paths a
 IDs remain separate preferences in `voicevox.yaml`. Existing `voicevox.json` files remain readable
 as a fallback; saving writes YAML and preserves the legacy file.
 
+## FSRS scheduling boundary
+
+`pawingo.review` wraps the published `fsrs` crate at exactly **6.6.2** (FSRS-6). The crate version
+and transitive dependencies are pinned in `native/fsrs/Cargo.toml` and `Cargo.lock`. The old
+consecutive-success interval doubling API has been removed; conservative answer normalization
+remains available independently of recall ratings.
+
+`Scheduler::create()` returns an owning, move-only model through `std::expected`. An empty parameter
+span selects upstream algorithm defaults; custom finite parameter arrays of 17, 19 or 21 values use
+upstream conversion and clipping. The product's default desired retention is embedded as
+`review.desired_retention` in application YAML; each `ScheduleRequest` may override it.
+
+```cpp
+import std;
+import pawingo.review;
+
+auto scheduler = pawingo::review::Scheduler::create();
+if (!scheduler)
+  return; // Present scheduler.error() at the frontend boundary.
+auto choices = scheduler->next_states({}); // A new card, with zero elapsed days.
+if (!choices)
+  return;
+auto memory = choices->good.memory; // Persist only the outcome actually selected by the user.
+auto following = scheduler->next_states({
+  .memory = memory,
+  .elapsed = std::chrono::days(5),
+  .desired_retention = 0.95F,
+});
+```
+
+`MemoryState` holds stability in fractional days and difficulty. `next_states` returns Again, Hard,
+Good and Easy outcomes without changing the prior state. Elapsed times are nonnegative whole days,
+matching this pinned upstream API; intervals retain their original floating-point precision through
+the strong `Days` duration. `memory_state` rebuilds state from chronological ratings and elapsed-day
+records, optionally continuing a stored state. A new card's first elapsed interval is zero. These
+operations are immutable and safe for concurrent callers while the owning model remains alive.
+
+`native/fsrs` is a small Rust static-library adapter, not a second application backend. Its private
+versioned C functions validate inputs, return numeric error categories and contain unwinding panics.
+Results are committed into caller-owned structures only on success; the opaque model is released by
+C++ RAII using its matching Rust destructor. Invalid pointers, allocation aborts and undefined
+behavior are outside panic recovery. All unsafe pointer operations document their lifetime and
+aliasing requirements. The generated `native/fsrs/include/pawingo_fsrs.h` is a private C ABI
+boundary, not a project C++ header facade; only the implementation unit includes it in a global
+module fragment. Cargo regenerates this checked-in declaration from Rust with cbindgen; do not edit
+it by hand.
+
+xmake's `pawingo-fsrs` target builds the locked Cargo graph for its configured
+platform/architecture, using PIC and a matching debug/release profile, then supplies the archive
+through target dependencies. Unchanged sources reuse the archive. A first build downloads Cargo
+dependencies; subsequent builds can run offline once cached. No Rust shared library or Cargo
+installation is needed at runtime. The Nix development shell includes the Rust toolchain.
+`just test` runs both Rust boundary tests and C++ module integration tests; `just fmt` also formats
+the Rust sources. Run strict Rust linting with:
+
+```sh
+cargo clippy --manifest-path native/fsrs/Cargo.toml --target-dir build/fsrs --all-targets --all-features --locked -- -D warnings
+```
+
+The module is deliberately independent of persistence and TUI flows. A review queue must still apply
+learning/relearning steps, interval rounding and caps, due timestamps, daily limits and
+transactional state/log updates. Match results and recall ratings must be stored independently.
+Existing vocabulary and review rows are preserved; this adapter does not infer missing historical
+ratings or mutate stored schedules. Parameter optimization is not yet exposed by the adapter.
+
 ## Configuration ownership and hardcoding audit
 
 Product defaults, learning data, and presentation copy belong in build-time YAML resources:
 
 | Source                                     | Owns                                                                                                                                                                  |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resources/application.yaml`               | Storage names, network defaults, consent default, theme, selection marks, activity calendar, review intervals, language names/flags, host copy                        |
+| `resources/application.yaml`               | Storage names, network defaults, consent default, theme, selection marks, activity calendar, FSRS desired retention, language names/flags, host copy                  |
 | `plugins/japanese/resources/defaults.yaml` | Plugin metadata, dictionary source and limits, target language and gloss aliases, TTS defaults and legacy adapters, resource paths, panel dimensions, archive budgets |
 | `plugins/japanese/resources/kana.yaml`     | Kana cells, row/column labels, initial selection                                                                                                                      |
 | `plugins/japanese/resources/messages.yaml` | Japanese panel titles, controls, shortcuts, confirmations, and ordinary status text                                                                                   |

@@ -26,9 +26,7 @@ activity:
   marks: ['·', '◦', '○', '●']
   today: ○
 review:
-  retry_seconds: 600
-  initial_interval_seconds: 86400
-  max_doublings: 6
+  desired_retention: 0.9
 services:
   default_policy: ask
 network:

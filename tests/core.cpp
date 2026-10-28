@@ -48,8 +48,6 @@ int main(int argc, char **argv) {
     require(argc == 2, "plugin path required");
     require(pawingo::review::exact("  hello  world ", "hello world"), "answer whitespace");
     require(!pawingo::review::exact("Hello", "hello"), "answer case preserved");
-    require(pawingo::review::next_review(0, false, 0) == 600, "failed review interval");
-    require(pawingo::review::next_review(0, true, 0) == 86400, "successful review interval");
     pawingo::Store store(":memory:");
     require(store.policy("service") == pawingo::OnlinePolicy::ask, "default policy");
     store.set_policy("service", pawingo::OnlinePolicy::allow);

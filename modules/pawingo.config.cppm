@@ -10,6 +10,8 @@ public:
   Settings(std::string_view yaml, std::string name);
   std::string text(std::string_view path) const;
   int integer(std::string_view path, int minimum, int maximum) const;
+  /// Reads a finite floating-point setting within inclusive bounds.
+  float real(std::string_view path, float minimum, float maximum) const;
   bool flag(std::string_view path) const;
   std::vector<std::string> strings(std::string_view path) const;
   std::vector<int> integers(std::string_view path) const;

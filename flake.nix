@@ -8,7 +8,7 @@
     in {
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {
-          packages = with pkgs; [ clang llvmPackages.clang-tools xmake just pkg-config ftxui sqlite expat zlib curl libarchive yaml-cpp prettier ];
+          packages = with pkgs; [ clang llvmPackages.clang-tools xmake just pkg-config ftxui sqlite expat zlib curl libarchive yaml-cpp prettier cargo rustc rustfmt clippy ];
           CC = "clang";
           CXX = "clang++";
         };

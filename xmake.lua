@@ -69,16 +69,55 @@ local function embed_application(target, context)
                {{"application", "resources/application.yaml"}}, context)
 end
 
+-- Cargo owns the Rust graph; xmake links one PIC static adapter into its normal target graph.
+target("pawingo-fsrs")
+  set_kind("static")
+  set_default(false)
+  on_load(function (target)
+    -- A Cargo-built target has no xmake source files, so advertise its archive explicitly.
+    target:add("linkdirs", target:targetdir(), {public = true})
+    target:add("links", "pawingo-fsrs", {public = true})
+  end)
+  on_build(function (target)
+    import("core.project.depend")
+    import("core.project.config")
+    local arch = ({x86_64="x86_64", x64="x86_64", arm64="aarch64", aarch64="aarch64"})[target:arch()]
+    local suffix = ({linux="unknown-linux-gnu", macosx="apple-darwin", windows="pc-windows-msvc"})[target:plat()]
+    assert(arch and suffix, "Unsupported Rust FSRS target: " .. target:plat() .. "/" .. target:arch())
+    local triple = arch .. "-" .. suffix
+    local profile = config.get("mode") == "debug" and "debug" or "release"
+    local cargo_dir = path.join(os.projectdir(), "build", "fsrs")
+    local source = path.join(os.projectdir(), "native", "fsrs")
+    local files = os.files(path.join(source, "**.rs"))
+    table.insert(files, path.join(source, "Cargo.toml"))
+    table.insert(files, path.join(source, "Cargo.lock"))
+    table.insert(files, path.join(source, "cbindgen.toml"))
+    depend.on_changed(function ()
+      local args = {"build", "--locked", "--manifest-path", path.join(source, "Cargo.toml"),
+                    "--target-dir", cargo_dir, "--target", triple}
+      if profile == "release" then table.insert(args, "--release") end
+      os.vrunv("cargo", args, {envs={RUSTFLAGS=(os.getenv("RUSTFLAGS") or "") .. " -C relocation-model=pic"}})
+      local archive = target:is_plat("windows") and "pawingo_fsrs_ffi.lib" or "libpawingo_fsrs_ffi.a"
+      os.cp(path.join(cargo_dir, triple, profile, archive), target:targetfile())
+    end, {dependfile=target:dependfile(target:targetfile()), files=files,
+          values={triple, profile, os.getenv("RUSTFLAGS") or ""},
+          changed=target:is_rebuilt() or not os.isfile(target:targetfile())})
+  end)
+  if is_plat("linux") then add_syslinks("pthread", "dl", "m", {public = true}) end
+  if is_plat("windows") then add_syslinks("advapi32", "bcrypt", "ntdll", "userenv", "ws2_32", {public = true}) end
+
 -- Shared module interfaces/BMIs are compiled once, then propagated through target dependencies.
 target("pawingo-runtime")
   set_kind("static")
+  add_deps("pawingo-fsrs", {public = true})
+  add_includedirs("native/fsrs/include")
   on_load(function (target)
     local context = {io=io, os=os, path=path, assert=assert, table=table, ipairs=ipairs}
     embed_sql(target, context)
     embed_application(target, context)
   end)
   add_files("modules/*.cppm", {public = true})
-  add_files("src/settings.cpp", "src/ui/input.cpp", "src/io/diagnostics.cpp", "src/download.cpp", "src/storage/store.cpp", "src/plugins/registry.cpp", "src/learning/search.cpp")
+  add_files("src/settings.cpp", "src/ui/input.cpp", "src/io/diagnostics.cpp", "src/review/scheduler.cpp", "src/download.cpp", "src/storage/store.cpp", "src/plugins/registry.cpp", "src/learning/search.cpp")
   add_packages("ftxui", "yaml-cpp", "sqlite_orm", "libcurl", "picosha2", {public = true})
   add_syslinks("sqlite3", "dl", "pthread", "m", {public = true})
   if is_plat("linux", "macosx") then add_cxflags("-fPIC") end
@@ -130,6 +169,7 @@ for _, spec in ipairs({
   {"download-tests", "tests/download.cpp", "runtime"},
   {"background-job-tests", "tests/background_job.cpp", "runtime"},
   {"diagnostics-tests", "tests/diagnostics.cpp", "runtime"},
+  {"review-tests", "tests/review.cpp", "runtime"},
   {"voicevox-tests", "tests/voicevox.cpp", "backend"},
   {"voicevox-install-tests", "tests/voicevox_install.cpp", "backend"},
   {"settings-tests", "tests/settings.cpp", "runtime"}
@@ -166,7 +206,7 @@ task("check-modules")
         end
       end
       for header in source:gmatch('#include%s+"([^"]+)"') do
-        assert(header == "voicevox_core.h", file .. ": project interfaces must use import, not #include " .. header)
+        assert(header == "voicevox_core.h" or header == "pawingo_fsrs.h", file .. ": project interfaces must use import, not #include " .. header)
       end
       if path.extension(file) == ".cppm" then
         assert(source:find("\n%s*export%s+module%s+[%w_.]+%s*;"), file .. ": missing exported module declaration")

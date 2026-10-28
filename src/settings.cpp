@@ -61,6 +61,13 @@ bool Settings::flag(std::string_view p) const {
   return impl_->get<bool>(p);
 }
 
+float Settings::real(std::string_view p, float min, float max) const {
+  const auto value = impl_->get<float>(p);
+  if (!std::isfinite(value) || value < min || value > max)
+    throw std::runtime_error(impl_->name + ": setting out of range: " + std::string(p));
+  return value;
+}
+
 std::vector<std::string> Settings::strings(std::string_view p) const {
   return impl_->get<std::vector<std::string>>(p);
 }

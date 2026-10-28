@@ -38,6 +38,18 @@ int main() {
       "embedded default preserved");
     require(pawingo::config::ui_text("get_plugins") == "Get plugins",
       "embedded presentation catalog");
+    require(pawingo::config::application().real("review.desired_retention", 0.F, 1.F) == 0.9F,
+      "embedded FSRS retention default");
+    for (const auto &number : {".nan", ".inf", "1.1"}) {
+      rejected = false;
+      try {
+        Settings invalid(std::string("schema: 1\nretention: ") + number, "fixture");
+        invalid.real("retention", 0.F, 1.F);
+      } catch (const std::runtime_error &) {
+        rejected = true;
+      }
+      require(rejected, "floating-point settings reject non-finite or out-of-range values");
+    }
   } catch (const std::exception &e) {
     std::cerr << e.what() << '\n';
     return 1;

@@ -42,8 +42,8 @@ readings differ, it analyzes the selected reading instead, preserving that query
 and mora pitches. Long-vowel spelling differences trigger this conservative fallback as well.
 Predictions are not authoritative dictionary accent annotations; the current dictionary importer
 does not supply accent entries or user accent overrides. Legacy speech adapters receive the selected
-reading. Searches, imports, downloads, and speech run outside the input thread and are cancelled when
-leaving the panel.
+reading. Searches, imports, downloads, and speech run outside the input thread and are cancelled
+when leaving the panel.
 
 ### Offline dictionary management
 

@@ -1,0 +1,10 @@
+Algorithm: FSRS-6, implemented by the fsrs crate
+Pinned crate version: 6.6.2
+Source: https://github.com/open-spaced-repetition/fsrs-rs
+Release: https://crates.io/crates/fsrs/6.6.2
+License: BSD-3-Clause (see LICENSE.fsrs)
+
+Pawingo owns the adapter in src/lib.rs. Algorithm defaults and formulas remain in the upstream
+crate. The generated include/pawingo_fsrs.h is maintained by cbindgen through build.rs.
+Cargo.lock pins transitive dependencies; Cargo downloads and verifies them during the first build.
+Retain the upstream notice when distributing binaries linked with this algorithm.
