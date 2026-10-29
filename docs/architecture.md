@@ -26,7 +26,7 @@ as their interface; project dependencies use `import` or `export import`.
 | `pawingo.storage`, `pawingo.learning`, `pawingo.review` | SQLite persistence, provider orchestration, and answer/review algorithms               |
 | `pawingo.plugins`                                       | Native library discovery and lifetime                                                  |
 | `pawingo.ui`                                            | Shared FTXUI theme and presentation helpers                                            |
-| `pawingo.review_ui`                                     | Host-owned typed-answer review session over persisted FSRS cards                       |
+| `pawingo.review_ui`                                     | Shared language-scoped review UI and optional host factory for plugin-owned panels     |
 | `pawingo.core`                                          | Re-exported host API convenience module                                                |
 | `pawingo.japanese.*`                                    | Japanese settings, dictionary, speech, installation, panels, and plugin implementation |
 
@@ -213,15 +213,21 @@ convenience API returns `int`.
 
 `pawingo.review_ui` composes these contracts into an offline typed-answer session. Enter previews
 the solution and proposed intervals; a separate confirmation commits the rating. Escape from
-feedback restores the draft; leaving a question does not write an event. The host delegates matching
-to the loaded language backend using configured name/code aliases, with conservative saved-meaning
-matching when no backend is available. Semicolon-delimited alternatives, whitespace and ASCII case
-variants are supported; the matcher does not guess synonyms or accept substrings. Ratings can be
-adjusted independently when the automated assessment is incomplete.
+feedback restores the draft; leaving a question does not write an event. The plugin supplies its
+matcher through the optional `pawingo::ui::ReviewProvider` host capability; the host factory borrows
+storage without exposing its connection to the plugin. This separate interface preserves the
+existing native Host and LanguagePlugin vtables. Sessions require a nonempty source-language code
+and apply it on every queue load. Conservative saved-meaning matching is the shared default.
+Semicolon-delimited alternatives, whitespace and ASCII case variants are supported; the matcher does
+not guess synonyms or accept substrings. Ratings can be adjusted independently when the automated
+assessment is incomplete.
 
-The home Review entry and `r` shortcut open the shared queue. The calendar reads committed activity
-only. Legacy vocabulary and activity rows remain intact; legacy reviews without four-way ratings are
-not replayed as FSRS history. Queue size is a batch size rather than a daily study cap. Automatic
+Review entries belong to language plugins (Japanese exposes `復習`); home only lists languages and
+plugin downloads alongside the cross-language calendar. Escape from a review question returns to
+that plugin's feature list; feedback consumes Escape to restore editing first. Plugin absence hides
+its entry without deleting its favorites or schedules. The calendar reads committed activity only.
+Legacy vocabulary and activity rows remain intact; legacy reviews without four-way ratings are not
+replayed as FSRS history. Queue size is a batch size rather than a daily study cap. Automatic
 parameter optimization, alternative question types and multi-step learning ladders are not yet
 implemented. See [review usage](review.md).
 

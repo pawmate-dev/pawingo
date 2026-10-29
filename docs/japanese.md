@@ -20,6 +20,13 @@ pointing at the dictionary; the legacy path also requires `open_jtalk` and `apla
 
 Mei voice credits are in [ATTRIBUTION.txt](../plugins/japanese/license/ATTRIBUTION.txt).
 
+## Review
+
+Choose `復習` from the Japanese feature list to review saved Japanese words. The queue is scoped to
+`ja`, including words saved with definitions in other target languages. It reuses shared FSRS
+scheduling and persistence and supplies the Japanese meaning matcher. Escape edits feedback first,
+then returns to the Japanese feature list. See [review usage](review.md) for input and rating keys.
+
 ## Vocabulary search
 
 Choose `語彙検索` in the Japanese feature list. Type Japanese spelling, a kana reading, or meaning

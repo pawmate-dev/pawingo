@@ -23,6 +23,7 @@ import pawingo.io;
 import pawingo.tasks;
 import pawingo.ui;
 import pawingo.review;
+import pawingo.review_ui;
 import pawingo.japanese.search;
 import pawingo.japanese.settings;
 import pawingo.japanese.voicevox;
@@ -53,8 +54,8 @@ const auto kana = [] {
 }();
 const auto feature_labels = [] {
   auto labels = settings().strings("plugin.panels");
-  if (labels.size() != 3)
-    throw std::runtime_error("Japanese plugin requires three feature labels.");
+  if (labels.size() != 4)
+    throw std::runtime_error("Japanese plugin requires four feature labels.");
   return labels;
 }();
 
@@ -314,11 +315,17 @@ ftxui::Component panel(pawingo::Host &host,
 class Japanese : public pawingo::LanguagePlugin, public pawingo::PanelHelpProvider {
 public:
   std::string panel_help(const std::string &id) const override {
+    if (id == feature_labels[3])
+      return review_help_ ? review_help_() : pawingo::config::ui_text("esc_back");
+    std::string shortcuts;
     if (id == feature_labels[2] || (id == feature_labels[0] && kana_page_ && *kana_page_ == 1))
-      return ui_text("tab_field_ctrl_p_preview");
-    if (id == feature_labels[1] && search_help_)
-      return search_help_();
-    return ui_text("select_enter_speak_d_voice");
+      shortcuts = ui_text("tab_field_ctrl_p_preview");
+    else if (id == feature_labels[1] && search_help_)
+      shortcuts = search_help_();
+    else
+      shortcuts = ui_text("select_enter_speak_d_voice");
+    return shortcuts + pawingo::config::application().text("theme.footer_separator") +
+      pawingo::config::ui_text("esc_back");
   }
 
   std::string language() const override {
@@ -339,6 +346,23 @@ public:
   }
 
   ftxui::Component create_panel(const std::string &id, pawingo::Host &host) override {
+    if (id == feature_labels[3]) {
+      auto *reviews = dynamic_cast<pawingo::ui::ReviewProvider *>(&host);
+      if (!reviews) {
+        review_help_ = {};
+        return ftxui::Renderer([] {
+          return ftxui::paragraph(ui_text("review_unavailable")) |
+            ftxui::color(pawingo::ui::muted) |
+            ftxui::size(ftxui::WIDTH, ftxui::EQUAL, pawingo::ui::content_width);
+        });
+      }
+      auto review = reviews->create_review_panel(settings().text("plugin.language"),
+        [this](const pawingo::Vocabulary &word, const std::string &answer) {
+          return match(word, answer);
+        });
+      review_help_ = std::move(review.help);
+      return review.component;
+    }
     if (id == feature_labels[2])
       return pawingo::japanese::voicevox_panel(voicevox_, host);
     if (id == feature_labels[0]) {
@@ -372,7 +396,7 @@ private:
     std::make_shared<pawingo::japanese::Dictionary>();
   std::shared_ptr<pawingo::japanese::Examples> examples_ =
     std::make_shared<pawingo::japanese::Examples>();
-  std::function<std::string()> search_help_;
+  std::function<std::string()> search_help_, review_help_;
 };
 
 pawingo::LanguagePlugin *create() {

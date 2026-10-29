@@ -89,3 +89,5 @@ messages:
   download_suffix: " from GitHub…"
   extract_prefix: "Extracting "
   extract_suffix: "…"
+
+review_unavailable: "Review is unavailable in this host."

@@ -1,8 +1,15 @@
 # Reviewing saved vocabulary
 
-Select **Review** on the home screen or press `r`. Saved words from every language enter the shared
-offline queue automatically. Existing favorites are enrolled on first startup after the migration;
-their vocabulary, IDs, sources and historical activity remain intact.
+Select a language on the home screen, then open its review feature. For Japanese, choose **Japanese
+→ 復習**. The home screen has no global Review entry or `r` shortcut. Each plugin owns its entry,
+answer matcher and panel lifetime; the host provides the shared offline FSRS session. Every queue
+load, advance and refresh stays within the plugin's vocabulary language code. A Japanese word with
+German definitions remains in Japanese review, not German review.
+
+Existing favorites retain their vocabulary, IDs, schedules, sources and historical activity.
+Language separation uses the existing vocabulary language field in the shared database; no data
+migration or separate database is needed. An unavailable plugin's cards remain stored until that
+plugin is installed again.
 
 The first question type shows the word and its reading and asks for its saved meaning. The small
 language code identifies the definition language captured when the word was saved. A word saved with
@@ -26,8 +33,9 @@ yourself. Matching outcome and recall rating are recorded separately. Checking a
 records nothing; only explicit rating confirmation updates learning history.
 
 Escape from feedback returns to the input with the draft preserved. Escape from the question or
-empty queue returns home without grading it. New-card enrollment creates no learning activity.
-Actual committed reviews update the home calendar, including repeated same-day practice.
+empty queue returns to the language feature list without grading it. New-card enrollment creates no
+learning activity. Actual committed reviews update the home calendar, including repeated same-day
+practice.
 
 ## Scheduling and persistence
 

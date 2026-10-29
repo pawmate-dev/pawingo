@@ -10,11 +10,20 @@ import std;
 import pawingo.io;
 import pawingo.plugin;
 import pawingo.ui;
+import pawingo.review_ui;
 
-class Host : public pawingo::Host, public pawingo::UiRefresh {
+class Host : public pawingo::Host, public pawingo::UiRefresh, public pawingo::ui::ReviewProvider {
 public:
   std::vector<pawingo::Vocabulary> saved;
   std::atomic<unsigned> redraws{0};
+  pawingo::Store store{":memory:"};
+  std::string review_language;
+
+  pawingo::ui::ReviewPanel create_review_panel(const std::string &language,
+    pawingo::ui::AnswerMatcher matcher) override {
+    review_language = language;
+    return pawingo::ui::review_panel(store, language, std::move(matcher));
+  }
 
   void request_redraw() override {
     ++redraws;
@@ -64,6 +73,28 @@ int main(int argc, char **argv) {
         "panel footer");
       require(panel->OnEvent(ftxui::Event::Character('d')), "voice state");
       require(panel->OnEvent(ftxui::Event::ArrowDown), "navigation");
+    }
+    {
+      const auto panels = plugin->panels();
+      require(std::ranges::find(panels, "復習") != panels.end(),
+        "Japanese declares its own review entry");
+      host.store.save({"de", "Katze", "", "eng", "cat", "fixture", ""});
+      host.store.save({"ja", "猫", "ねこ", "eng", "cat; feline", "fixture", ""});
+      auto panel = plugin->create_panel("復習", host);
+      auto *help = dynamic_cast<pawingo::PanelHelpProvider *>(plugin);
+      require(panel && host.review_language == "ja" && help &&
+          help->panel_help("復習").find("check") != std::string::npos,
+        "native plugin requests a language-scoped host session and exposes its footer");
+      panel->OnEvent(ftxui::Event::Character("feline"));
+      panel->OnEvent(ftxui::Event::Return);
+      require(panel->OnEvent(ftxui::Event::Escape) && host.store.review_history(2)->empty(),
+        "review feedback consumes Escape without grading");
+      panel->OnEvent(ftxui::Event::Return);
+      panel->OnEvent(ftxui::Event::Character('3'));
+      require(host.store.review_history(2)->size() == 1 && host.store.review_history(1)->empty(),
+        "plugin grades its Japanese card without touching German favorites");
+      require(!panel->OnEvent(ftxui::Event::Escape),
+        "completed review delegates Escape to the plugin feature list");
     }
     {
       auto panel = plugin->create_panel("音声設定", host);

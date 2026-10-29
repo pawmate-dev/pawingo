@@ -38,10 +38,6 @@ review:
   scroll_step_percent: 10
   status_height: 2
   rating_labels: [again, hard, good, easy]
-language_codes:
-  Japanese: ja
-  German: de
-  English: en
 services:
   default_policy: ask
 network:
@@ -73,4 +69,3 @@ messages:
   review_question_help: "enter  check    esc  back"
   review_feedback_help: "←→ rating  ↑↓ meaning  enter confirm  1–4 rate  esc edit"
   review_empty_help: "enter  refresh    esc  back"
-  review_home_help: "↑ ↓  select    enter  open    r  review    q  quit"

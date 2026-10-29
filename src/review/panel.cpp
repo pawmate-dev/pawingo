@@ -15,6 +15,7 @@ enum class Phase { question, feedback, empty, unavailable };
 
 struct State {
   Store &store;
+  std::string language;
   AnswerMatcher matcher;
   ReviewClock clock;
   std::optional<review::Scheduler> scheduler;
@@ -46,7 +47,7 @@ void advance(State &s) {
   if (s.queue.empty()) {
     auto queue = s.store.review_queue({s.clock(),
       static_cast<std::size_t>(config::application().integer("review.queue_batch_size", 1, 1000)),
-      {}});
+      s.language});
     if (!queue) {
       s.phase = Phase::unavailable;
       s.status = queue.error().message;
@@ -107,7 +108,10 @@ std::string interval(std::chrono::seconds value) {
 }
 } // namespace
 
-ReviewPanel review_panel(Store &store, AnswerMatcher matcher, ReviewClock clock) {
+ReviewPanel
+review_panel(Store &store, const std::string &language, AnswerMatcher matcher, ReviewClock clock) {
+  if (language.find_first_not_of(" \t\r\n") == std::string::npos)
+    throw std::invalid_argument("A review session requires a language code.");
   using namespace ftxui;
   if (!matcher)
     matcher = [](const Vocabulary &word, const std::string &answer) {
@@ -117,7 +121,7 @@ ReviewPanel review_panel(Store &store, AnswerMatcher matcher, ReviewClock clock)
     clock = [] {
       return std::chrono::time_point_cast<std::chrono::seconds>(std::chrono::system_clock::now());
     };
-  auto state = std::make_shared<State>(store, std::move(matcher), std::move(clock));
+  auto state = std::make_shared<State>(store, language, std::move(matcher), std::move(clock));
   advance(*state);
   InputOption options;
   options.multiline = false;

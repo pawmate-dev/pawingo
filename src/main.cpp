@@ -15,7 +15,7 @@ namespace config = pawingo::config;
 namespace {
 using pawingo::config::ui_text;
 
-class UiHost : public pawingo::Host, public pawingo::UiRefresh {
+class UiHost : public pawingo::Host, public pawingo::UiRefresh, public pawingo::ui::ReviewProvider {
 public:
   UiHost(pawingo::Store &store, ftxui::ScreenInteractive &screen)
     : store_(store),
@@ -29,6 +29,11 @@ public:
   std::vector<pawingo::Resource> resources(pawingo::ResourceKind kind,
     const std::string &language) override {
     return store_.resources(kind, language);
+  }
+
+  pawingo::ui::ReviewPanel create_review_panel(const std::string &language,
+    pawingo::ui::AnswerMatcher matcher) override {
+    return pawingo::ui::review_panel(store_, language, std::move(matcher));
   }
 
   void request_redraw() override {
@@ -136,32 +141,14 @@ int main() {
     auto languages = plugins.languages();
     auto screen = ScreenInteractive::Fullscreen();
     UiHost ui_host(store, screen);
-    enum class Page { home, features, panel, download, review };
+    enum class Page { home, features, panel, download };
     Page page = Page::home;
     int choice = 0;
     int feature = 0;
     pawingo::LanguagePlugin *current = nullptr;
     std::vector<std::string> features;
     Component plugin_panel;
-    std::optional<pawingo::ui::ReviewPanel> review_panel;
-    const int review_choice = static_cast<int>(languages.size());
-    const int download_choice = review_choice + 1;
-    const auto language_codes = config::application().mapping("language_codes");
-    auto match_answer = [languages, language_codes](const pawingo::Vocabulary &word,
-                          const std::string &answer) {
-      for (auto *plugin : languages) {
-        const auto name = plugin->language();
-        const auto code = language_codes.find(name);
-        if (name == word.language ||
-          (code != language_codes.end() && code->second == word.language))
-          return plugin->match(word, answer);
-      }
-      return pawingo::review::match_meaning(word, answer);
-    };
-    auto open_review = [&] {
-      review_panel = pawingo::ui::review_panel(store, match_answer);
-      page = Page::review;
-    };
+    const int download_choice = static_cast<int>(languages.size());
     auto focus = Button("", [] {
     });
     auto app = Renderer(focus, [&] {
@@ -188,18 +175,12 @@ int main() {
             hcenter);
         }
         content.push_back(text(""));
-        content.push_back(
-          hbox({text(selection(choice == review_choice)) | color(accent),
-            text(ui_text("review")) | color(choice == review_choice ? ink : secondary)}) |
-          hcenter
-        );
-        content.push_back(text(""));
         auto download =
           text(ui_text("get_plugins")) | color(choice == download_choice ? ink : secondary);
         content.push_back(
           hbox({text(selection(choice == download_choice)) | color(accent), download}) | hcenter
         );
-        footer = ui_text("review_home_help");
+        footer = ui_text("select_enter_open_q_quit");
         for (const auto &error : plugins.errors())
           content.push_back(paragraph(error) | color(accent));
       } else if (page == Page::features) {
@@ -218,9 +199,6 @@ int main() {
         }
         content.push_back(text(""));
         footer = ui_text("select_enter_open_esc_back");
-      } else if (page == Page::review) {
-        content.push_back(review_panel->component->Render());
-        footer = review_panel->help();
       } else if (page == Page::download) {
         content = {text(ui_text("get_plugins")) | color(ink),
           text(""),
@@ -230,25 +208,15 @@ int main() {
       } else {
         content.push_back(plugin_panel->Render());
         if (auto *help = dynamic_cast<pawingo::PanelHelpProvider *>(current))
-          footer = help->panel_help(features[feature]) +
-            config::application().text("theme.footer_separator");
-        footer += ui_text("esc_back");
+          footer = help->panel_help(features[feature]);
+        else
+          footer = ui_text("esc_back");
       }
       auto body = vbox({wordmark(), text(""), text(""), vbox(std::move(content)) | color(ink)}) |
         size(WIDTH, EQUAL, content_width) | center | flex;
       return vbox({body, text(footer) | color(muted) | hcenter, text("")});
     });
     auto events = CatchEvent(app, [&](Event event) {
-      if (page == Page::review) {
-        if (event == Event::Escape && !review_panel->component->OnEvent(event)) {
-          review_panel.reset();
-          page = Page::home;
-          return true;
-        }
-        if (event == Event::Escape)
-          return true;
-        return review_panel->component->OnEvent(event);
-      }
       if (page == Page::panel) {
         if (event == Event::Escape) {
           // Let the panel dismiss a local prompt before leaving the feature.
@@ -269,10 +237,6 @@ int main() {
         return true;
       }
       if (page == Page::home) {
-        if (event == Event::Character('r')) {
-          open_review();
-          return true;
-        }
         if (event == Event::Character('q')) {
           screen.Exit();
           return true;
@@ -286,9 +250,7 @@ int main() {
           return true;
         }
         if (event == Event::Return) {
-          if (choice == review_choice)
-            open_review();
-          else if (choice == download_choice)
+          if (choice == download_choice)
             page = Page::download;
           else {
             current = languages[choice];

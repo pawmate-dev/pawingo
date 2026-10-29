@@ -126,9 +126,49 @@ int main() {
     }
     {
       Store store(":memory:");
+      store.save({"de", "Katze", "", "eng", "cat", "German fixture", ""});
+      store.save(word());
+      auto german = word();
+      german.meaning_language = "ger";
+      german.meaning = "Katze";
+      store.save(german);
+      bool rejected = false;
+      try {
+        (void)ui::review_panel(store, "");
+      } catch (const std::invalid_argument &) {
+        rejected = true;
+      }
+      require(rejected, "review UI rejects an unscoped session");
+      int matches = 0;
+      auto panel = ui::review_panel(
+        store,
+        "ja",
+        [&](const Vocabulary &entry, const std::string &answer) {
+          require(entry.language == "ja", "matcher receives only its plugin language");
+          ++matches;
+          return review::match_meaning(entry, answer);
+        },
+        [&] {
+          return now;
+        }
+      );
+      for (const auto &answer : {"cat", "Katze"}) {
+        require(render(panel).ToString().find("猫") != std::string::npos,
+          "language scope uses source language rather than definition language");
+        panel.component->OnEvent(ftxui::Event::Character(answer));
+        panel.component->OnEvent(ftxui::Event::Return);
+        panel.component->OnEvent(ftxui::Event::Character('3'));
+      }
+      panel.component->OnEvent(ftxui::Event::Return);
+      require(matches == 2 && render(panel).ToString().find("No cards due") != std::string::npos &&
+          store.review_history(1)->empty() && store.review_queue({now, 10, "de"})->size() == 1,
+        "advance and refresh never include or grade another language");
+    }
+    {
+      Store store(":memory:");
       store.save(word());
       auto clock = now;
-      auto panel = ui::review_panel(store, {}, [&] {
+      auto panel = ui::review_panel(store, "ja", {}, [&] {
         return clock;
       });
       auto question = render(panel);
@@ -159,7 +199,7 @@ int main() {
       Store store(":memory:");
       store.save(word());
       auto clock = now;
-      auto panel = ui::review_panel(store, {}, [&] {
+      auto panel = ui::review_panel(store, "ja", {}, [&] {
         return clock;
       });
       panel.component->OnEvent(ftxui::Event::Character("dog"));
@@ -186,10 +226,10 @@ int main() {
     {
       Store store(":memory:");
       store.save(word());
-      auto first = ui::review_panel(store, {}, [&] {
+      auto first = ui::review_panel(store, "ja", {}, [&] {
         return now;
       });
-      auto second = ui::review_panel(store, {}, [&] {
+      auto second = ui::review_panel(store, "ja", {}, [&] {
         return now;
       });
       for (auto *panel : {&first, &second}) {

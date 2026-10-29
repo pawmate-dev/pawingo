@@ -36,7 +36,7 @@ public:
 class PanelHelpProvider {
 public:
   virtual ~PanelHelpProvider() = default;
-  /// Returns the current shortcuts for a panel, without changing its state.
+  /// Returns the complete footer, including current Escape behavior, without changing panel state.
   virtual std::string panel_help(const std::string &id) const = 0;
 };
 

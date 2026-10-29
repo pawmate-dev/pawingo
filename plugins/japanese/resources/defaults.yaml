@@ -3,7 +3,7 @@ plugin:
   id: japanese
   name: Japanese
   language: ja
-  panels: [五十音図, 語彙検索, 音声設定]
+  panels: [五十音図, 語彙検索, 音声設定, 復習]
 dictionary:
   path: dictionaries/japanese/JMdict
   override_env: PAWINGO_JMDICT
