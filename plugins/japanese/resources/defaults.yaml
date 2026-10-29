@@ -33,6 +33,20 @@ dictionary:
     ja: jpn
     zh: chi
     zho: chi
+examples:
+  path: examples/japanese/examples.sqlite3
+  url: https://downloads.tatoeba.org/exports/wwwjdic.csv
+  sentence_url: https://tatoeba.org/en/sentences/show/
+  attribution: Tatoeba contributors · WWWJDIC word indices
+  license: CC BY 2.0 FR
+  download_bytes: 134217728
+  timeout_seconds: 180
+  expanded_bytes: 268435456
+  max_line_bytes: 1048576
+  max_records: 1000000
+  max_links: 5000000
+  result_limit: 5
+  candidate_limit: 10000
 tts:
   preferences: voicevox.yaml
   legacy_preferences: voicevox.json
@@ -54,7 +68,9 @@ tts:
 layout:
   status_height: 3
   search_status_height: 2
-  dictionary_spacer_height: 5
+  detail_height: 9
+  detail_scroll_step_percent: 10
+  dictionary_spacer_height: 1
   kana_cell_width: 6
   kana_label_width: 4
   search_query_width: 51

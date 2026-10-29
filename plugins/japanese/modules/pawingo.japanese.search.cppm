@@ -5,6 +5,7 @@ export module pawingo.japanese.search;
 
 import std;
 export import pawingo.japanese.dictionary;
+export import pawingo.japanese.examples;
 export import pawingo.plugin;
 
 /// FTXUI presentation and host-service integration for Japanese vocabulary lookup.
@@ -23,9 +24,13 @@ struct SearchPanel {
 /// @param dictionary Shared lookup cache retained until the panel's jobs finish.
 /// @param host Borrowed storage/resource/redraw services; must outlive the panel.
 /// @param speech Blocking pronunciation adapter retaining the selected spelling and reading.
+/// @param examples Shared corpus owner; omitted for standalone panels, which create a local owner.
 /// @return An independent panel and its current shortcut hint provider.
 ///
 /// Panel destruction requests cancellation and joins its worker before releasing services.
 /// Only UI callbacks access host persistence; workers request redraw through UiRefresh.
-SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary, Host &host, Speech speech);
+SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
+  Host &host,
+  Speech speech,
+  std::shared_ptr<Examples> examples = {});
 } // namespace pawingo::japanese

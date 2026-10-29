@@ -28,6 +28,17 @@ Ordinary katakana readings also match their hiragana forms. The panel displays u
 with five visible at a time; use the arrow keys to select a result. The complete selected meaning
 and its JMdict/EDRDG source are shown below the list.
 
+Press Enter again to open the selected result's detail page, with its spelling, reading, complete
+definition, definition language and source. Up/Down scroll the details; Ctrl+S saves and Ctrl+P
+speaks. Escape returns to the result list with its query and selection preserved. Editing the query
+or target language makes the next Enter run a new search instead of opening an outdated result.
+Editable fields stay inactive while details are open.
+
+The dictionary importer retains entry IDs and original sense numbers for example linking. Rich
+JMdict metadata such as part-of-speech tags, priority markers, dialects and cross-references is not
+yet displayed. Examples come from a separate offline resource; changing to `JMdict_e_examp` is not
+required and its embedded example elements are not imported.
+
 Press Tab to edit the target definition language, then Enter to search again. The target accepts
 codes such as `en`, `de`, `fr`, `nl`, `es`, `ru`, `hu`, `sl`, and `sv`, or JMdict's three-letter
 language identifiers. Availability depends on the imported file and the individual entry. An
@@ -63,6 +74,56 @@ To use an existing dictionary without copying it, set `PAWINGO_JMDICT` to its pa
 uses enabled host dictionary resources whose language is `ja` and whose location names a local
 JMdict XML/gzip file. The backend's `LanguagePlugin::search` method uses the environment override
 and the managed file; the panel additionally includes host-configured resources.
+
+### Independent offline examples
+
+Ctrl+D opens **Dictionaries & examples**. Its example actions are separate from JMdict installation:
+
+- **Download / update indexed examples** asks before downloading the official
+  [WWWJDIC export](https://downloads.tatoeba.org/exports/wwwjdic.csv). Despite its `.csv` name, this
+  is a five-column, tab-delimited Japanese/English corpus with word indices. Successful installation
+  returns to the originating details and refreshes its examples.
+- **Import indexed examples** accepts that same plain TSV or gzip format from a local file.
+- **Import translations for the current target** accepts local Tatoeba sentence pairs for the target
+  selected in search. Select the intended target before importing. This replaces only that
+  language's translations and preserves the dictionary and other translation languages.
+
+For additional translations, use [Tatoeba's sentence-pair exports](https://tatoeba.org/en/downloads)
+with Japanese as the sentence language, the desired translation language, and these four fields in
+order: **sentence ID, sentence text, translation ID, translation text**. The default full TSV layout
+matches this order. Plain/gzip, UTF-8 BOM and CRLF files are supported. Rows outside the installed
+Japanese index are skipped. A conflicting Japanese text for an indexed ID, an invalid file, or an
+import with no matching sentences leaves the installed data unchanged. For example:
+
+```text
+101<TAB>猫がいる。<TAB>301<TAB>Eine Katze ist da.
+```
+
+`<TAB>` above means a real tab character. Translation language is an explicit import choice, not
+inferred from the filename. The starter index supplies English translations; German and other
+targets require their own imported pairs. Missing target translations are labeled explicitly;
+Japanese examples remain visible and English is never substituted silently.
+
+The managed SQLite resource is `$XDG_DATA_HOME/pawingo/examples/japanese/examples.sqlite3`, or
+`~/.local/share/pawingo/examples/japanese/examples.sqlite3`. It is reused across restarts and is
+independent of the vocabulary/review database and the multilingual JMdict file. No corpus is bundled
+or downloaded during lookup. Imports build a private candidate, validate it and atomically commit;
+failure/cancellation before commit preserves the prior resource. Index updates retain independently
+imported non-English translations. Concurrent imports from separate processes are unsupported.
+
+Details show up to five linked examples, with checked usages first. Up/Down scrolls the bounded
+detail region. Source and translation IDs link to their Tatoeba pages; contributor attribution and
+the export's CC BY 2.0 FR notice remain visible. The four-column export does not contain author
+names, so Pawingo retains attribution links rather than inventing individual author metadata. Ctrl+S
+and Ctrl+P continue to save/pronounce the selected **word**, not an arbitrary example sentence.
+
+Association follows
+[EDRDG's index format](https://www.edrdg.org/wiki/Sentence-Dictionary_Linking.html): explicit JMdict
+entry IDs take precedence; otherwise an exact indexed headword must be unambiguous at the available
+spelling/reading specificity. Explicit readings and sense numbers must agree with the selected
+result. Bare ambiguous headwords are excluded; unspecified senses are labeled **word-level**.
+Surface inflections are not treated as dictionary identities. This does not perform substring
+matching or claim that a checked usage marker guarantees a flawless translation.
 
 ### Dictionary attribution
 

@@ -67,6 +67,8 @@ struct Entry {
 struct Row {
   Vocabulary word;
   std::string expression, reading, meaning;
+  std::int64_t sequence = 0;
+  std::uint32_t sense = 0;
 };
 
 using Rows = std::vector<Row>;
@@ -185,6 +187,12 @@ struct Parser {
   }
 
   void emit() {
+    std::int64_t sequence = 0;
+    const auto parsed = std::from_chars(entry.sequence.data(),
+      entry.sequence.data() + entry.sequence.size(),
+      sequence);
+    if (parsed.ec != std::errc{} || parsed.ptr != entry.sequence.data() + entry.sequence.size())
+      sequence = 0;
     for (const auto &r : entry.readings) {
       if (r.text.empty())
         continue;
@@ -193,7 +201,9 @@ struct Parser {
       for (const auto &spelling : spellings) {
         if (!allows(r.restrictions, spelling))
           continue;
+        std::uint32_t sense_number = 0;
         for (const auto &s : entry.senses) {
+          ++sense_number;
           if (!allows(s.spellings, spelling) || !allows(s.readings, r.text))
             continue;
           for (const auto &[language, glosses] : s.glosses) {
@@ -210,9 +220,12 @@ struct Parser {
               meaning,
               source_prefix + entry.sequence,
               ""};
-            rows.push_back(
-              {std::move(v), normalized(spelling), normalized(r.text), normalized(meaning)}
-            );
+            rows.push_back({std::move(v),
+              normalized(spelling),
+              normalized(r.text),
+              normalized(meaning),
+              sequence,
+              sense_number});
             static const auto row_limit =
               static_cast<std::size_t>(settings().integer("dictionary.max_records", 1, 10000000));
             if (rows.size() > row_limit)
@@ -294,6 +307,10 @@ std::string gloss_language(const std::string &language) {
   static const auto codes = settings().mapping("dictionary.gloss_languages");
   auto it = codes.find(normalized);
   return it == codes.end() ? normalized : it->second;
+}
+
+std::string reading_key(const std::string &reading) {
+  return normalized(reading);
 }
 
 struct Dictionary::Impl {
@@ -390,5 +407,36 @@ std::size_t Dictionary::install(const std::filesystem::path &source, std::stop_t
     Impl::Cached{std::filesystem::last_write_time(target), std::filesystem::file_size(target), rows}
   );
   return rows->size();
+}
+
+std::optional<EntryReference> Dictionary::reference(const Vocabulary &word,
+  const std::vector<std::filesystem::path> &paths,
+  std::stop_token stop) {
+  std::optional<EntryReference> result;
+  std::set<std::pair<std::int64_t, std::string>> identities;
+  for (const auto &path : paths) {
+    const auto rows = impl_->load(path, stop);
+    for (const auto &row : *rows) {
+      cancelled(stop);
+      if (row.word.expression != word.expression)
+        continue;
+      identities.emplace(row.sequence, row.word.reading);
+      if (row.word.source == word.source && row.word.reading == word.reading &&
+        row.word.meaning_language == word.meaning_language && row.word.meaning == word.meaning &&
+        row.sequence > 0) {
+        if (!result)
+          result = EntryReference{row.sequence, row.sense, false};
+        else if (result->sequence != row.sequence || result->sense != row.sense)
+          result->sense = 0;
+      }
+    }
+  }
+  if (result) {
+    result->unique_headword = identities.size() == 1;
+    result->unique_reading = std::ranges::count_if(identities, [&](const auto &identity) {
+      return identity.second == word.reading;
+    }) == 1;
+  }
+  return result;
 }
 } // namespace pawingo::japanese

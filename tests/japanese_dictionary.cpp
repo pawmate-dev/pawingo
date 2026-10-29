@@ -21,6 +21,10 @@ int main(int argc, char **argv) {
     require(result[0].meaning == "cat; feline" &&
         result[0].source.find("EDRDG") != std::string::npos,
       "gloss and provenance");
+    auto reference = dictionary.reference(result[0], {fixture});
+    require(reference && reference->sequence == 1001 && reference->sense == 1 &&
+        reference->unique_headword && reference->unique_reading,
+      "dictionary result resolves to a typed entry and sense without parsing its display label");
     result = dictionary.search("ネコ", "en", {fixture});
     require(result.size() == 2 && result[0].reading == "ねこ", "katakana lookup");
     result = dictionary.search("猫", "de", {fixture});
@@ -33,6 +37,9 @@ int main(int argc, char **argv) {
     result = dictionary.search("せい", "en", {fixture});
     require(result.size() == 1 && result[0].expression == "性" && result[0].meaning == "nature",
       "reading and sense restrictions");
+    reference = dictionary.reference(result[0], {fixture});
+    require(reference && reference->sequence == 1003 && reference->sense == 2,
+      "original sense numbering survives language and spelling restrictions");
     result = dictionary.search("はたち", "en", {fixture});
     require(result.size() == 1 && result[0].expression == "はたち", "kana-only restriction");
     require(dictionary.search("%", "en", {fixture}).empty(), "search is literal");

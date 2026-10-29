@@ -221,10 +221,52 @@ int main(int argc, char **argv) {
       for (int i = 0; i < 100 && host.redraws.load() == previous_redraws; ++i)
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
       require(host.redraws.load() > previous_redraws, "query completion requests a host redraw");
+      auto *help = dynamic_cast<pawingo::PanelHelpProvider *>(plugin);
+      require(help, "search footer provider");
+      for (int i = 0; i < 100 && help->panel_help("語彙検索").find("scroll") == std::string::npos;
+        ++i) {
+        panel->OnEvent(ftxui::Event::Return);
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      }
+      require(help->panel_help("語彙検索").find("scroll") != std::string::npos &&
+          rendered().find("ねこ") != std::string::npos &&
+          rendered().find("EDRDG") != std::string::npos,
+        "enter opens selected word details with reading and source");
+      require(wait_for("No offline examples"),
+        "optional example resource is not downloaded implicitly");
+      const auto example_index = directory / "examples.tsv";
+      std::ofstream(example_index) << "101\t201\t猫がいる。\tThere is a cat.\t猫(ねこ)[01]~\n";
+      panel->OnEvent(ftxui::Event::CtrlD);
+      for (int i = 0; i < 3; ++i)
+        panel->OnEvent(ftxui::Event::ArrowDown);
+      panel->OnEvent(ftxui::Event::Return);
+      panel->OnEvent(ftxui::Event::Character(example_index.string()));
+      panel->OnEvent(ftxui::Event::Return);
+      require(wait_for("There is a cat."), "imported independent examples appear in details");
+      require(rendered().find("Tatoeba #101") != std::string::npos,
+        "example details expose sentence provenance");
+      panel->OnEvent(ftxui::Event::Character("ignored"));
+      panel->OnEvent(ftxui::Event::Tab);
+      panel->OnEvent(ftxui::Event::ArrowDown);
       panel->OnEvent(ftxui::Event::CtrlS);
       require(host.saved.size() == 1 && host.saved[0].expression == "猫" &&
           host.saved[0].reading == "ねこ",
-        "save search result");
+        "detail scrolling keeps the selected word and save preserves its reading");
+      panel->OnEvent(ftxui::Event::CtrlD);
+      require(panel->OnEvent(ftxui::Event::Escape) &&
+          help->panel_help("語彙検索").find("scroll") != std::string::npos,
+        "dictionary manager returns to details when opened there");
+      require(panel->OnEvent(ftxui::Event::Escape) &&
+          help->panel_help("語彙検索").find("enter open") != std::string::npos &&
+          rendered().find("ignored") == std::string::npos,
+        "escape returns to results without changing hidden query fields");
+      panel->OnEvent(ftxui::Event::Character("舌"));
+      panel->OnEvent(ftxui::Event::Return);
+      require(wait_for("sensitivity"),
+        "editing the query makes enter search instead of opening stale details");
+      panel->OnEvent(ftxui::Event::Backspace);
+      panel->OnEvent(ftxui::Event::Return);
+      require(wait_for("feline"), "query can be restored after visiting details");
       panel->OnEvent(ftxui::Event::Tab);
       panel->OnEvent(ftxui::Event::Backspace);
       panel->OnEvent(ftxui::Event::Backspace);
@@ -234,9 +276,35 @@ int main(int argc, char **argv) {
       panel->OnEvent(ftxui::Event::Return);
       require(wait_for("Katze"), "search target language input");
       panel->OnEvent(ftxui::Event::CtrlD);
+      panel->OnEvent(ftxui::Event::ArrowDown);
       panel->OnEvent(ftxui::Event::Return);
-      require(panel->OnEvent(ftxui::Event::Escape), "cancel dictionary download confirmation");
-      require(panel->OnEvent(ftxui::Event::Escape), "close dictionary manager");
+      panel->OnEvent(ftxui::Event::End);
+      for (std::size_t i = 0; i < example_index.string().size(); ++i)
+        panel->OnEvent(ftxui::Event::Backspace);
+      const auto german_pairs = directory / "de.tsv";
+      std::ofstream(german_pairs) << "101\t猫がいる。\t301\tEine Katze ist da.\n";
+      panel->OnEvent(ftxui::Event::Character(german_pairs.string()));
+      panel->OnEvent(ftxui::Event::Return);
+      require(wait_for("Offline example resource ready"),
+        "target-language sentence pairs import through the manager");
+      for (int i = 0; i < 100 && help->panel_help("語彙検索").find("scroll") == std::string::npos;
+        ++i) {
+        panel->OnEvent(ftxui::Event::Return);
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      }
+      require(wait_for("Eine Katze ist da."),
+        "details select the requested example translation language");
+      panel->OnEvent(ftxui::Event::CtrlD);
+      panel->OnEvent(ftxui::Event::ArrowUp);
+      panel->OnEvent(ftxui::Event::ArrowUp);
+      panel->OnEvent(ftxui::Event::Return);
+      require(rendered().find("downloads.tatoeba.org") != std::string::npos,
+        "example download requires explicit confirmation");
+      require(panel->OnEvent(ftxui::Event::Escape), "cancel example download confirmation");
+      require(panel->OnEvent(ftxui::Event::Escape),
+        "manager returns to the originating detail page");
+      require(panel->OnEvent(ftxui::Event::Escape),
+        "details return to search after resource management");
       require(!panel->OnEvent(ftxui::Event::Escape), "search delegates back navigation to host");
     }
     if (had_dictionary)

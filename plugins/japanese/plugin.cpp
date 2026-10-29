@@ -18,6 +18,7 @@ module pawingo.japanese.plugin;
 import std;
 import pawingo.plugin;
 import pawingo.japanese.dictionary;
+import pawingo.japanese.examples;
 import pawingo.io;
 import pawingo.tasks;
 import pawingo.ui;
@@ -344,14 +345,17 @@ public:
       return panel(host, voicevox_, kana_page_);
     }
     if (id == feature_labels[1]) {
-      auto search = pawingo::japanese::search_panel(dictionary_,
+      auto search = pawingo::japanese::search_panel(
+        dictionary_,
         host,
         [service = voicevox_](const pawingo::Vocabulary &word, std::stop_token stop) {
           State state;
           state.voicevox = service;
           speak(state, {.text = word.expression, .reading = word.reading}, stop);
           return state.message;
-        });
+        },
+        examples_
+      );
       search_help_ = std::move(search.help);
       return search.component;
     }
@@ -364,6 +368,8 @@ private:
     std::make_shared<pawingo::japanese::Voicevox>();
   std::shared_ptr<pawingo::japanese::Dictionary> dictionary_ =
     std::make_shared<pawingo::japanese::Dictionary>();
+  std::shared_ptr<pawingo::japanese::Examples> examples_ =
+    std::make_shared<pawingo::japanese::Examples>();
   std::function<std::string()> search_help_;
 };
 

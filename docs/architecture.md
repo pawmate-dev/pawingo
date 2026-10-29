@@ -105,6 +105,35 @@ restrictions, candidate ownership, and atomic installation. Runtime user paths a
 IDs remain separate preferences in `voicevox.yaml`. Existing `voicevox.json` files remain readable
 as a fallback; saving writes YAML and preserves the legacy file.
 
+## Independent Japanese example resource
+
+`pawingo.japanese.examples` owns a frontend-neutral, offline SQLite corpus, managed independently of
+JMdict and learner persistence. `Dictionary::reference` resolves a selected `Vocabulary` back to the
+parsed entry ID and original sense number without parsing display source text. It also checks
+whether spelling or spelling plus reading is ambiguous across configured dictionary files. The
+shared `Vocabulary` layout and native plugin ABI remain unchanged.
+
+The example database stores Japanese sentences, language-specific translations and word-level
+indices. Independent schema/index SQL lives in `plugins/japanese/sql/examples.sql` and is embedded
+through the existing xmake asset module. Ordinary corpus operations use sqlite_orm. Imports work in
+a private copy, use a database transaction, close all connections and atomically replace the managed
+file only after validation. Matching and imports serialize through one service owner. Multi-process
+concurrent writers are unsupported; no long-lived read connection prevents resource replacement.
+
+WWWJDIC five-column TSV carries the starter Japanese/English pairs and linking indices. Additional
+four-column Tatoeba exports add translations by Japanese sentence ID, with a text consistency check
+and an explicit target language. Index updates preserve non-English translations; missing target
+translations never trigger online translation or English fallback. The parser bounds expanded bytes,
+line lengths, row counts and index counts, supports plain/gzip data, and checks cancellation during
+streaming/import. Broken archives and malformed input cannot replace installed data.
+
+Detail lookup runs on the panel's joined background worker. The frontend shows bounded, scrollable
+examples and source links, with all status copy/limits/URLs/defaults in the Japanese YAML resources.
+The resource manager requires explicit confirmation for downloads and routes cancellation through
+the existing worker/network contracts. Corpus tests cover identity specificity, sense/reading
+restrictions, target-language behavior, update preservation, atomic failures, compression and staged
+cancellation; native UI tests cover imports and the nested Escape flow.
+
 ## FSRS scheduling boundary
 
 `pawingo.review` wraps the published `fsrs` crate at exactly **6.6.2** (FSRS-6). The crate version

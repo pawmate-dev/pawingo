@@ -11,6 +11,17 @@ std::filesystem::path dictionary_path();
 std::vector<std::filesystem::path> dictionary_paths();
 /// Maps a target language or locale to JMdict's three-letter gloss identifier.
 std::string gloss_language(const std::string &language);
+/// Canonical lookup key for ordinary kana; folds katakana and ASCII case and trims whitespace.
+std::string reading_key(const std::string &reading);
+
+/// Stable JMdict identity recovered from a parsed row, never by parsing a display source label.
+struct EntryReference {
+  std::int64_t sequence = 0;
+  std::uint32_t sense =
+    0; ///< One-based sense number, or zero when the selected gloss is ambiguous.
+  bool unique_headword = false; ///< False when the spelling has multiple entries or readings.
+  bool unique_reading = false; ///< False when spelling plus reading still has multiple entries.
+};
 
 /// Owns shared immutable dictionary snapshots, refreshed when source metadata changes.
 class Dictionary {
@@ -48,6 +59,12 @@ public:
   /// Failure before commit preserves the installed file and removes the temporary copy.
   /// The parsed snapshot is reused by subsequent lookups in this Dictionary instance.
   std::size_t install(const std::filesystem::path &source, std::stop_token stop = {});
+  /// Resolves a selected result to its entry/sense and checks spelling ambiguity across providers.
+  /// Returns no reference for an unknown result. Uses the same caches, cancellation and failure
+  /// contract as search(); callers must run this operation outside the input thread.
+  std::optional<EntryReference> reference(const Vocabulary &word,
+    const std::vector<std::filesystem::path> &paths,
+    std::stop_token stop = {});
 
 private:
   struct Impl;

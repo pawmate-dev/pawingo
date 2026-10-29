@@ -61,6 +61,7 @@ local function embed_voicevox(target, context)
                          {"japanese_defaults", "defaults.yaml"}, {"japanese_kana", "kana.yaml"}, {"japanese_messages", "messages.yaml"}}) do
     table.insert(entries, {item[1], path.join("plugins", "japanese", "resources", item[2])})
   end
+  table.insert(entries, {"japanese_examples_sql", path.join("plugins", "japanese", "sql", "examples.sql")})
   embed_assets(target, "pawingo::japanese::assets", "pawingo.japanese.assets", "pawingo_voicevox_assets.cppm", entries, context)
 end
 
@@ -130,7 +131,7 @@ target("japanese-backend")
   end)
   add_deps("pawingo-runtime", {public = true})
   add_files("plugins/japanese/modules/*.cppm", {public = true})
-  add_files("plugins/japanese/plugin.cpp", "plugins/japanese/dictionary.cpp", "plugins/japanese/search_panel.cpp", "plugins/japanese/voicevox.cpp", "plugins/japanese/settings.cpp", "plugins/japanese/voicevox_panel.cpp", "plugins/japanese/voicevox_install.cpp", "plugins/japanese/voicevox_manifest.cpp")
+  add_files("plugins/japanese/plugin.cpp", "plugins/japanese/dictionary.cpp", "plugins/japanese/examples.cpp", "plugins/japanese/search_panel.cpp", "plugins/japanese/voicevox.cpp", "plugins/japanese/settings.cpp", "plugins/japanese/voicevox_panel.cpp", "plugins/japanese/voicevox_install.cpp", "plugins/japanese/voicevox_manifest.cpp")
   add_includedirs("third_party/voicevox")
   add_packages("miniaudio", "nlohmann_json", "libarchive", "expat", "zlib", {public = true})
   if is_plat("linux", "macosx") then add_cxflags("-fPIC") end
@@ -166,6 +167,7 @@ for _, spec in ipairs({
   {"pawingo-tests", "tests/core.cpp", "core"},
   {"japanese-tests", "tests/japanese.cpp", "native"},
   {"japanese-dictionary-tests", "tests/japanese_dictionary.cpp", "backend"},
+  {"japanese-examples-tests", "tests/japanese_examples.cpp", "backend"},
   {"download-tests", "tests/download.cpp", "runtime"},
   {"background-job-tests", "tests/background_job.cpp", "runtime"},
   {"diagnostics-tests", "tests/diagnostics.cpp", "runtime"},

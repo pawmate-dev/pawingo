@@ -10,6 +10,7 @@ import pawingo.net;
 import pawingo.tasks;
 import pawingo.ui;
 import pawingo.japanese.settings;
+import pawingo.japanese.examples;
 
 namespace pawingo::japanese {
 namespace {
@@ -27,11 +28,18 @@ std::vector<std::filesystem::path> panel_dictionary_paths(Host &host) {
       paths.push_back(path);
   return paths;
 }
-enum class Page { search, dictionary, confirm, import };
+enum class Page { search, detail, dictionary, confirm, import };
 
 struct SearchState {
   std::string query, target = settings().text("dictionary.target"), file;
   Page page = Page::search;
+  Page dictionary_return = Page::search;
+  std::optional<Vocabulary> detail;
+  std::vector<Example> examples;
+  std::string examples_status;
+  bool examples_loading = false;
+  std::string searched_query, searched_target;
+  float detail_scroll = 0.F;
   int field = 0, selected = 0, resource_choice = 0;
   std::mutex mutex;
   std::vector<Vocabulary> results;
@@ -55,6 +63,13 @@ void publish(SearchState &state, std::vector<Vocabulary> results, std::string te
 void launch(SearchState &state, std::function<void(std::stop_token)> work) {
   state.job.start(std::move(work), [&state](std::exception_ptr failure) {
     if (failure) {
+      {
+        std::lock_guard lock(state.mutex);
+        if (state.examples_loading) {
+          state.examples_loading = false;
+          state.examples_status = ui_text("examples_unavailable");
+        }
+      }
       try {
         std::rethrow_exception(failure);
       } catch (const std::exception &error) {
@@ -82,12 +97,77 @@ void fetch(Dictionary &dictionary, SearchState &state, std::stop_token stop) {
   message(state, ui_text("reading_jmdict"));
   dictionary.install(temporary.file(), stop);
 }
+
+void fetch_examples(Examples &examples, SearchState &state, std::stop_token stop) {
+  pawingo::net::TemporaryDownload temporary(examples.path().parent_path());
+  auto result = pawingo::net::download_https(
+    {.url = settings().text("examples.url"),
+      .destination = temporary.file(),
+      .max_bytes =
+        static_cast<std::size_t>(settings().integer("examples.download_bytes", 1, 1073741824)),
+      .timeout = std::chrono::seconds(settings().integer("examples.timeout_seconds", 1, 3600))},
+    stop
+  );
+  if (!result) {
+    if (stop.stop_requested())
+      return;
+    throw std::runtime_error(result.error().message);
+  }
+  message(state, ui_text("importing_examples"));
+  auto installed = examples.install_index(temporary.file(), stop);
+  if (!installed && installed.error().kind != ExampleErrorKind::cancelled)
+    throw std::runtime_error(installed.error().message);
+}
+
+// Keep corpus and dictionary work off the input thread. Captured state is owned by its joined job.
+void detail_examples(SearchState &state,
+  Dictionary &dictionary,
+  Examples &examples,
+  const Vocabulary &word,
+  const std::vector<std::filesystem::path> &paths,
+  std::stop_token stop) {
+  std::vector<Example> matches;
+  std::string status;
+  try {
+    if (!std::filesystem::is_regular_file(examples.path())) {
+      status = ui_text("examples_not_installed");
+    } else if (auto reference = dictionary.reference(word, paths, stop)) {
+      auto found =
+        examples.find({*reference, word.expression, word.reading, word.meaning_language}, stop);
+      if (!found) {
+        if (found.error().kind == ExampleErrorKind::cancelled)
+          return;
+        status = found.error().message;
+      } else {
+        matches = std::move(*found);
+        if (matches.empty())
+          status = ui_text("no_linked_examples");
+      }
+    } else
+      status = ui_text("no_linked_examples");
+  } catch (const std::exception &e) {
+    if (stop.stop_requested())
+      return;
+    status = e.what();
+  }
+  if (stop.stop_requested())
+    return;
+  std::lock_guard lock(state.mutex);
+  state.examples = std::move(matches);
+  state.examples_status = std::move(status);
+  state.examples_loading = false;
+}
 } // namespace
 
-SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary, Host &host, Speech speech) {
+SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
+  Host &host,
+  Speech speech,
+  std::shared_ptr<Examples> examples) {
   using namespace ftxui;
   using namespace pawingo::ui;
   auto state = std::make_shared<SearchState>();
+  if (!examples)
+    examples = std::make_shared<Examples>();
   if (auto *events = dynamic_cast<pawingo::UiRefresh *>(&host))
     state->redraw = [events] {
       events->request_redraw();
@@ -100,20 +180,27 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary, Host &host, Spe
   auto query = pawingo::ui::text_input(&state->query, ui_text("word_reading_or_meaning"), options);
   auto target =
     pawingo::ui::text_input(&state->target, settings().text("dictionary.target"), options);
-  auto file = pawingo::ui::text_input(&state->file, ui_text("path_to_jmdict_xml_gz"), options);
+  auto file = pawingo::ui::text_input(&state->file, ui_text("resource_file_path"), options);
   auto fields = Container::Vertical({query, target, file}, &state->field);
   auto initial_paths = panel_dictionary_paths(host);
   if (initial_paths.empty())
     message(*state, ui_text("no_offline_dictionary_ctrl_d_to"));
-  auto render = Renderer(fields, [state, query, target, file] {
+  auto render = Renderer(fields, [state, query, target, file, corpus = examples] {
     using namespace pawingo::ui;
-    Elements content{text(ui_text("search_title")) | color(ink) | bold | hcenter, text("")};
+    Elements content{text(state->page == Page::detail && state->detail ? state->detail->expression
+                                                                       : ui_text("search_title")) |
+        color(ink) | bold | hcenter,
+      text("")};
     std::string status;
+    std::string examples_status;
+    std::vector<Example> examples;
     std::vector<Vocabulary> results;
     {
       std::lock_guard lock(state->mutex);
       status = state->message;
       results = state->results;
+      examples = state->examples;
+      examples_status = state->examples_status;
     }
     if (state->page == Page::search) {
       content.push_back(hbox({text("⌕  ") | color(accent),
@@ -151,30 +238,88 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary, Host &host, Spe
           size(HEIGHT, EQUAL, settings().integer("layout.status_height", 1, 10)));
         content.push_back(text(""));
       }
+    } else if (state->page == Page::detail && state->detail) {
+      const auto &word = *state->detail;
+      content.push_back(text(word.reading) | color(secondary) | hcenter);
+      content.push_back(text(""));
+      Elements body{paragraph(word.meaning) | color(ink),
+        text(""),
+        paragraph(word.source + "  ·  " + word.meaning_language) | color(muted)};
+      if (!word.context.empty()) {
+        body.push_back(text(""));
+        body.push_back(paragraph(word.context) | color(secondary));
+      }
+      body.push_back(text(""));
+      body.push_back(text(ui_text("examples_title")) | color(secondary));
+      if (!examples_status.empty())
+        body.push_back(paragraph(examples_status) | color(muted));
+      for (const auto &example : examples) {
+        body.push_back(text(""));
+        body.push_back(paragraph(example.text) | color(ink));
+        body.push_back(paragraph(example.translation.empty()
+                           ? ui_text("no_example_translation") + example.translation_language
+                           : example.translation) |
+          color(secondary));
+        Elements source{text(ui_text("example_source") + std::to_string(example.sentence_id)) |
+          hyperlink(example.source_url) | color(muted)};
+        if (example.translation_id)
+          source.push_back(text("  ·  #" + std::to_string(example.translation_id)) |
+            hyperlink(example.translation_url) | color(muted));
+        if (!example.sense_link)
+          source.push_back(text(ui_text("example_word_level")) | color(muted));
+        body.push_back(hbox(std::move(source)));
+      }
+      if (!examples.empty()) {
+        body.push_back(text(""));
+        body.push_back(paragraph(examples.front().attribution + "  ·  " +
+                         examples.front().license) |
+          color(muted));
+      }
+      content.push_back(vbox(std::move(body)) | focusPositionRelative(0.F, state->detail_scroll) |
+        yframe | size(HEIGHT, EQUAL, settings().integer("layout.detail_height", 1, 30)));
     } else {
-      content.push_back(text(ui_text("jmdict_edrdg")) | color(secondary));
+      content.push_back(text(ui_text("resource_title")) | color(secondary));
       content.push_back(text(""));
       if (state->page == Page::dictionary) {
         content.push_back(text(std::filesystem::is_regular_file(dictionary_path())
                               ? ui_text("offline_dictionary_installed")
                               : ui_text("no_managed_dictionary_installed")) |
           color(muted));
+        content.push_back(text(std::filesystem::is_regular_file(corpus->path())
+                              ? ui_text("examples_installed")
+                              : ui_text("examples_not_installed")) |
+          color(muted));
         content.push_back(text(""));
-        for (int i = 0; i < 2; ++i)
+        const std::array labels{ui_text("download_update_jmdict"),
+          ui_text("import_local_jmdict"),
+          ui_text("download_examples"),
+          ui_text("import_example_index"),
+          ui_text("import_example_translations")};
+        for (int i = 0; i < static_cast<int>(labels.size()); ++i)
           content.push_back(hbox({text(selection(state->resource_choice == i)) | color(accent),
-            text(i == 0 ? ui_text("download_update_jmdict") : ui_text("import_local_jmdict")) |
-              color(state->resource_choice == i ? ink : secondary)}));
+            text(labels[i]) | color(state->resource_choice == i ? ink : secondary)}));
         content.push_back(text(""));
         content.push_back(text(ui_text("www_edrdg_org_dictionary_sources_and")) | color(muted));
       } else if (state->page == Page::confirm) {
-        content.push_back(paragraph(ui_text("download_the_multilingual_dictionary_from_www")) |
+        content.push_back(paragraph(ui_text(state->resource_choice == 2
+                              ? "confirm_example_download"
+                              : "download_the_multilingual_dictionary_from_www")) |
           color(ink));
         content.push_back(text(""));
-        content.push_back(text(ui_text("jmdict_japanese_english_cc_by_sa")) | color(muted));
-        content.push_back(text(ui_text("other_translations_retain_their_contributors_licenses")) |
+        content.push_back(text(ui_text(state->resource_choice == 2
+                              ? "example_license"
+                              : "jmdict_japanese_english_cc_by_sa")) |
+          color(muted));
+        content.push_back(text(ui_text(state->resource_choice == 2
+                              ? "example_download_languages"
+                              : "other_translations_retain_their_contributors_licenses")) |
           color(muted));
       } else {
-        content.push_back(text(ui_text("jmdict_xml_or_gzip_file")) | color(secondary));
+        content.push_back(paragraph(state->resource_choice == 1 ? ui_text("jmdict_xml_or_gzip_file")
+                              : state->resource_choice == 3
+                              ? ui_text("example_index_format")
+                              : ui_text("example_pair_format") + gloss_language(state->target)) |
+          color(secondary));
         content.push_back(text(""));
         content.push_back(file->Render());
       }
@@ -190,6 +335,8 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary, Host &host, Spe
       return;
     state->selected = 0;
     const auto query = state->query, target = state->target;
+    state->searched_query = query;
+    state->searched_target = target;
     auto paths = panel_dictionary_paths(host);
     if (query.find_first_not_of(" \t\n\r") == std::string::npos) {
       publish(*state, {}, "");
@@ -208,30 +355,40 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary, Host &host, Spe
       publish(*state, std::move(results), status);
     });
   };
-  auto component =
-    CatchEvent(render, [state, dictionary, &host, speech, fields, perform_search](Event event) {
+  auto component = CatchEvent(render,
+    [state, dictionary, examples, &host, speech, fields, perform_search](Event event) {
       if (event == Event::Custom)
         return true;
       if (event == Event::Escape) {
         if (state->page == Page::search)
           return false;
-        state->page = state->page == Page::dictionary ? Page::search : Page::dictionary;
+        if (state->page == Page::detail) {
+          state->job.request_stop();
+          state->page = Page::search;
+          state->detail.reset();
+        } else {
+          state->page =
+            state->page == Page::dictionary ? state->dictionary_return : Page::dictionary;
+        }
         state->field = 0;
         message(*state, "");
         return true;
       }
-      if (event == Event::CtrlD) {
+      if (event == Event::CtrlD && (state->page == Page::search || state->page == Page::detail)) {
+        state->dictionary_return = state->page;
         state->page = Page::dictionary;
         state->field = 0;
         return true;
       }
       if (state->page == Page::dictionary) {
         if (event == Event::ArrowUp || event == Event::ArrowDown) {
-          state->resource_choice = 1 - state->resource_choice;
+          state->resource_choice =
+            std::clamp(state->resource_choice + (event == Event::ArrowDown ? 1 : -1), 0, 4);
           return true;
         }
         if (event == Event::Return && !state->job.running()) {
-          state->page = state->resource_choice == 0 ? Page::confirm : Page::import;
+          state->page = state->resource_choice == 0 || state->resource_choice == 2 ? Page::confirm
+                                                                                   : Page::import;
           state->field = state->page == Page::import ? 2 : 0;
           message(*state, "");
           return true;
@@ -240,25 +397,72 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary, Host &host, Spe
       }
       if (state->page == Page::confirm || state->page == Page::import) {
         if (event == Event::Return && !state->job.running()) {
-          const bool download = state->page == Page::confirm;
+          const int action = state->resource_choice;
+          const bool download = action == 0 || action == 2;
           const auto path = state->file;
           if (!download && path.empty()) {
-            message(*state, ui_text("enter_a_local_jmdict_file_path"));
+            message(*state, ui_text("enter_resource_file_path"));
             return true;
           }
-          state->page = Page::search;
+          const auto detail = action >= 2 && state->dictionary_return == Page::detail
+            ? state->detail
+            : std::optional<Vocabulary>{};
+          const auto paths = panel_dictionary_paths(host);
+          state->page = detail ? Page::detail : Page::search;
+          if (!detail)
+            state->detail.reset();
           state->field = 0;
           state->selected = 0;
-          publish(*state, {}, download ? ui_text("downloading_jmdict") : ui_text("reading_jmdict"));
+          const auto progress = action == 0 ? ui_text("downloading_jmdict")
+            : action == 1                   ? ui_text("reading_jmdict")
+            : download                      ? ui_text("downloading_examples")
+                                            : ui_text("importing_examples");
+          if (!detail)
+            publish(*state, {}, progress);
+          else {
+            std::lock_guard lock(state->mutex);
+            state->message = progress;
+            state->examples.clear();
+            state->examples_status = ui_text("loading_examples");
+            state->examples_loading = true;
+          }
           const auto query = state->query, target = state->target;
+          state->searched_query = query;
+          state->searched_target = target;
           launch(*state,
-            [state = state.get(), dictionary, path, download, query, target](std::stop_token stop) {
-              if (download)
+            [state = state.get(), dictionary, examples, path, action, query, target, detail, paths](
+              std::stop_token stop
+            ) {
+              if (action == 0)
                 fetch(*dictionary, *state, stop);
-              else
+              else if (action == 1)
                 dictionary->install(path, stop);
-              auto results = dictionary->search(query, target, {dictionary_path()}, stop);
-              publish(*state, std::move(results), ui_text("offline_dictionary_ready"));
+              else if (action == 2)
+                fetch_examples(*examples, *state, stop);
+              else {
+                auto installed = action == 3 ? examples->install_index(path, stop)
+                                             : examples->install_translations({path, target}, stop);
+                if (!installed) {
+                  if (installed.error().kind == ExampleErrorKind::cancelled)
+                    return;
+                  throw std::runtime_error(installed.error().message);
+                }
+              }
+              if (stop.stop_requested())
+                return;
+              if (detail) {
+                detail_examples(*state, *dictionary, *examples, *detail, paths, stop);
+                message(*state, ui_text("example_resource_ready"));
+              } else {
+                auto results = dictionary->search(query,
+                  target,
+                  action < 2 ? std::vector<std::filesystem::path>{dictionary_path()} : paths,
+                  stop);
+                publish(*state,
+                  std::move(results),
+                  action < 2 ? ui_text("offline_dictionary_ready")
+                             : ui_text("example_resource_ready"));
+              }
             });
           return true;
         }
@@ -266,15 +470,49 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary, Host &host, Spe
           return fields->OnEvent(event);
         return true;
       }
-      if (event == Event::Tab || event == Event::TabReverse) {
+      if (state->page == Page::search && (event == Event::Tab || event == Event::TabReverse)) {
         state->field = 1 - state->field;
         return true;
       }
       if (event == Event::Return) {
+        if (state->page == Page::detail || state->job.running())
+          return true;
+        std::optional<Vocabulary> detail;
+        {
+          std::lock_guard lock(state->mutex);
+          if (state->query == state->searched_query && state->target == state->searched_target &&
+            !state->results.empty() && state->selected < static_cast<int>(state->results.size())) {
+            state->detail = state->results[state->selected];
+            state->detail_scroll = 0.F;
+            state->page = Page::detail;
+            state->message.clear();
+            state->examples.clear();
+            state->examples_status = ui_text("loading_examples");
+            state->examples_loading = true;
+            detail = state->detail;
+          }
+        }
+        if (detail) {
+          const auto paths = panel_dictionary_paths(host);
+          launch(*state,
+            [state = state.get(), dictionary, examples, word = *detail, paths](
+              std::stop_token stop
+            ) {
+              detail_examples(*state, *dictionary, *examples, word, paths, stop);
+            });
+          return true;
+        }
         perform_search();
         return true;
       }
       if (event == Event::ArrowDown || event == Event::ArrowUp) {
+        if (state->page == Page::detail) {
+          const float step =
+            settings().integer("layout.detail_scroll_step_percent", 1, 100) / 100.F;
+          state->detail_scroll =
+            std::clamp(state->detail_scroll + (event == Event::ArrowDown ? step : -step), 0.F, 1.F);
+          return true;
+        }
         std::lock_guard lock(state->mutex);
         if (!state->results.empty())
           state->selected = std::clamp(state->selected + (event == Event::ArrowDown ? 1 : -1),
@@ -288,7 +526,8 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary, Host &host, Spe
           std::lock_guard lock(state->mutex);
           if (state->results.empty() || state->selected >= static_cast<int>(state->results.size()))
             return true;
-          word = state->results[state->selected];
+          word = state->page == Page::detail && state->detail ? *state->detail
+                                                              : state->results[state->selected];
         }
         if (event == Event::CtrlS) {
           try {
@@ -306,7 +545,7 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary, Host &host, Spe
         }
         return true;
       }
-      return fields->OnEvent(event);
+      return state->page == Page::detail ? true : fields->OnEvent(event);
     });
   return {component, [weak = std::weak_ptr<SearchState>(state)] {
             auto state = weak.lock();
@@ -318,6 +557,14 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary, Host &host, Spe
               return std::string(ui_text("enter_import"));
             if (state->page == Page::dictionary)
               return std::string(ui_text("select_enter_open"));
+            if (state->page == Page::detail)
+              return std::string(ui_text("detail_shortcuts"));
+            {
+              std::lock_guard lock(state->mutex);
+              if (!state->results.empty() && state->query == state->searched_query &&
+                state->target == state->searched_target)
+                return std::string(ui_text("enter_open_select_tab_target_s"));
+            }
             return std::string(ui_text("enter_find_select_tab_target_s"));
           }};
 }
