@@ -6,6 +6,6 @@ plugins:
       description: Japanese vocabulary, kana, typed review and optional local speech.
       language: ja
       version: 0.1.0
-      host_version: 0.2.0
+      host_version: 0.1.0
       plugin_api: 1
       artifacts: {}

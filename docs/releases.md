@@ -4,13 +4,18 @@ Pawingo publishes the host and Japanese plugin as separate assets of the same re
 binary target is Linux x86_64 with GNU libc. Both assets must come from one SDK build; a version
 range alone does not make native C++ plugins compatible.
 
+For 0.1.0, public binary publication remains blocked on the corresponding-source distribution and
+hosted CI verification. See the [0.1.0 changelog](../CHANGELOG.md#010-unreleased). Local test
+archives and a draft are preparation artifacts, not evidence that those publication requirements are
+complete.
+
 ## Building a release
 
 From a clean checkout with the normal xmake dependencies plus Python 3.12+, patchelf and just:
 
 ```sh
 export PAWINGO_RELEASE_BUILD="$(git rev-parse HEAD)"
-just release v0.2.0
+just release v0.1.0
 ```
 
 The tag must match the host version in `xmake.lua`. `PAWINGO_RELEASE_BUILD` is a build-time input;
@@ -27,7 +32,7 @@ The output contains:
 
 ```text
 build/release/
-  pawingo-0.2.0-linux-x86_64-gnu.tar.gz
+  pawingo-0.1.0-linux-x86_64-gnu.tar.gz
   pawingo-japanese-0.1.0-linux-x86_64-gnu.tar.gz
   plugins-v1.yaml
   SHA256SUMS
@@ -44,8 +49,9 @@ the ELF loader remain system dependencies; `dependencies.yaml` records the build
 The Nix flake remains a development shell; exporting a Nix closure is a separate distribution path.
 Windows/macOS native loader and packaging adapters are not supplied by this initial release job.
 Supplied third-party notices and available distro/source notices are copied into each archive;
-maintainers must review distribution licensing, including the project's own license, before making
-the draft public.
+Pawingo-owned source is MIT licensed. The combined binaries include sqlite_orm under AGPL-3.0; see
+the root NOTICE and the [0.1.0 changelog](../CHANGELOG.md#010-unreleased) before making the draft
+public.
 
 ## GitHub workflow
 
@@ -79,11 +85,11 @@ plugins:
     description: Japanese vocabulary, kana, typed review and optional local speech.
     language: ja
     version: 0.1.0
-    host_version: 0.2.0
+    host_version: 0.1.0
     plugin_api: 1
     artifacts:
       linux-x86_64-gnu:
-        url: https://github.com/pawmate-dev/pawingo/releases/download/v0.2.0/pawingo-japanese-0.1.0-linux-x86_64-gnu.tar.gz
+        url: https://github.com/pawmate-dev/pawingo/releases/download/v0.1.0/pawingo-japanese-0.1.0-linux-x86_64-gnu.tar.gz
         sha256: "<generated 64-character lowercase SHA-256>"
         size_bytes: 12345678
         entry: lib/libjapanese.so

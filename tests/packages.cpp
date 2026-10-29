@@ -262,7 +262,7 @@ int main(int argc, char **argv) {
       "catalog identifies installed version");
     const auto old_entry = enabled->front();
     const auto update_file = root / "update.tar.gz";
-    auto update = fixture(update_file, argv[1], "0.2.0");
+    auto update = fixture(update_file, argv[1], "0.1.1");
     invalid = update;
     invalid.artifact->abi += "-different";
     auto mismatch = manager->install_archive(invalid, update_file);
@@ -280,7 +280,7 @@ int main(int argc, char **argv) {
         manager->installed()->front().version == "0.1.0",
       "cancelled update preserves active version");
     const auto wrong_file = root / "wrong.tar.gz";
-    auto wrong = fixture(wrong_file, argv[1], "0.2.0", true);
+    auto wrong = fixture(wrong_file, argv[1], "0.1.1", true);
     auto bad_meta = manager->install_archive(wrong, wrong_file);
     require(!bad_meta && bad_meta.error().kind == ErrorKind::manifest,
       "artifact metadata must agree with its catalog");
@@ -301,10 +301,10 @@ int main(int argc, char **argv) {
     require(manager->installed()->front().version == "0.1.0",
       "failed updates never replace active inventory");
     require(bool(manager->install_archive(update, update_file)) &&
-        manager->installed()->front().version == "0.2.0" && std::filesystem::exists(old_entry),
+        manager->installed()->front().version == "0.1.1" && std::filesystem::exists(old_entry),
       "update commits the new version without overwriting the loaded old library");
     require(manager->offers()->front().state == OfferState::installed &&
-        manager->offers()->front().package.version == "0.2.0",
+        manager->offers()->front().package.version == "0.1.1",
       "an older embedded or cached catalog never proposes a downgrade");
     std::filesystem::create_directory(root / "plugins/.package-lock");
     auto busy = manager->refresh();
@@ -324,7 +324,7 @@ int main(int argc, char **argv) {
       });
     auto late = cancelled_manager.install(offer, during.get_token());
     require(!late && late.error().kind == ErrorKind::cancelled &&
-        manager->installed()->front().version == "0.2.0",
+        manager->installed()->front().version == "0.1.1",
       "cancellation after transfer cannot activate an older package");
   } catch (const std::exception &e) {
     std::cerr << e.what() << '\n';

@@ -46,9 +46,14 @@ jobs:
                   xmake build pawingo
                   python tools/release.py core --tag "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"
             - name: Create draft with complete assets
+              shell: bash
               env:
                   GH_TOKEN: ${{ github.token }}
-              run: >-
-                  gh release create "$GITHUB_REF_NAME" build/release/*.tar.gz
-                  build/release/plugins-v1.yaml build/release/SHA256SUMS
-                  --repo "$GITHUB_REPOSITORY" --verify-tag --draft --generate-notes
+              run: |
+                  (cd build/release && sha256sum -c SHA256SUMS)
+                  assets=()
+                  while IFS= read -r line; do
+                    assets+=("build/release/${line#*  }")
+                  done < build/release/SHA256SUMS
+                  gh release create "$GITHUB_REF_NAME" "${assets[@]}" build/release/SHA256SUMS \
+                    --repo "$GITHUB_REPOSITORY" --verify-tag --draft --generate-notes

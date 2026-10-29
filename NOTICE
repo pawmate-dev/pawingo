@@ -1,0 +1,21 @@
+Pawingo distribution notices
+
+Pawingo-owned source is provided under the MIT license in LICENSE. Third-party
+components retain their original copyright notices and licenses.
+
+The distributed host and Japanese plugin incorporate sqlite_orm v1.9.1, whose
+public distribution is licensed under the GNU Affero General Public License,
+version 3. The combined binary distributions are provided under those AGPL
+conditions; they are not MIT-only binary distributions. The MIT grant for
+Pawingo-owned source does not remove sqlite_orm's conditions.
+
+The complete AGPL text is in licenses/sqlite_orm-AGPL-3.0.txt. Binary publication
+must include the corresponding source and build/install materials required by
+that license. A GitHub-generated archive of Pawingo alone does not necessarily
+contain the incorporated third-party source. See CHANGELOG.md for the
+current readiness status. No warranty is provided; retain all license texts.
+
+Other bundled components include FSRS under BSD-3-Clause, FTXUI and PicoSHA2
+under MIT, miniaudio under its upstream dual license, nlohmann/json under MIT,
+and Expat under its upstream license. Their retained notices accompany the
+release archives. Runtime dependencies retain their own licenses and notices.

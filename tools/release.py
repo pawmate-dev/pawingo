@@ -50,7 +50,10 @@ def info(binary: Path, allow_development: bool) -> dict[str, Any]:
 def copy_notices(destination: Path, libraries: dict[str, Path]) -> None:
     """Preserve supplied notices and available distro notices for bundled dependencies."""
     destination.mkdir(parents=True, exist_ok=True)
-    for relative in ["native/fsrs/LICENSE.fsrs", "third_party/voicevox/LICENSE"]:
+    for source in sorted((PROJECT / "licenses").iterdir()):
+        if source.is_file():
+            shutil.copy2(source, destination / source.name)
+    for relative in ["LICENSE", "NOTICE", "native/fsrs/LICENSE.fsrs", "third_party/voicevox/LICENSE"]:
         source = PROJECT / relative
         shutil.copy2(source, destination / relative.replace("/", "-"))
     packages: set[str] = set()
@@ -195,7 +198,11 @@ def package_core(options: argparse.Namespace, metadata: dict[str, Any]) -> None:
     if relocated["abi"] != metadata["abi"]:
         raise ValueError("Relocated host changed build identity.")
     run([str(root / "bin/pawingo"), "--check-plugin", str(options.output / "plugin-stage/lib/libjapanese.so")])
-    outputs = sorted(options.output.glob("*.tar.gz")) + [options.output / "plugins-v1.yaml"]
+    plugin_archive = options.output / artifact["url"].rsplit("/", 1)[-1]
+    if plugin_archive.stat().st_size != artifact["size_bytes"] or checksum(plugin_archive) != artifact["sha256"]:
+        raise ValueError("The plugin archive no longer matches the generated catalog.")
+    # Keep unrelated archives from older local test builds out of the release manifest.
+    outputs = [target, plugin_archive, options.output / "plugins-v1.yaml"]
     (options.output / "SHA256SUMS").write_text(
         "".join(f"{checksum(path)}  {path.name}\n" for path in outputs), encoding="utf-8"
     )

@@ -1,5 +1,5 @@
 set_project("pawingo")
-local pawingo_version = "0.2.0"
+local pawingo_version = "0.1.0"
 set_version(pawingo_version)
 set_languages("cxx26")
 set_policy("build.c++.modules", true)
