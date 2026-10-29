@@ -26,6 +26,7 @@ as their interface; project dependencies use `import` or `export import`.
 | `pawingo.storage`, `pawingo.learning`, `pawingo.review` | SQLite persistence, provider orchestration, and answer/review algorithms               |
 | `pawingo.plugins`                                       | Native library discovery and lifetime                                                  |
 | `pawingo.ui`                                            | Shared FTXUI theme and presentation helpers                                            |
+| `pawingo.review_ui`                                     | Host-owned typed-answer review session over persisted FSRS cards                       |
 | `pawingo.core`                                          | Re-exported host API convenience module                                                |
 | `pawingo.japanese.*`                                    | Japanese settings, dictionary, speech, installation, panels, and plugin implementation |
 
@@ -193,11 +194,36 @@ the Rust sources. Run strict Rust linting with:
 cargo clippy --manifest-path native/fsrs/Cargo.toml --target-dir build/fsrs --all-targets --all-features --locked -- -D warnings
 ```
 
-The module is deliberately independent of persistence and TUI flows. A review queue must still apply
-learning/relearning steps, interval rounding and caps, due timestamps, daily limits and
-transactional state/log updates. Match results and recall ratings must be stored independently.
-Existing vocabulary and review rows are preserved; this adapter does not infer missing historical
-ratings or mutate stored schedules. Parameter optimization is not yet exposed by the adapter.
+The raw scheduler remains independent of persistence and TUI flows. `plan_review` applies the host's
+policy to a due card: Again uses the short relearning delay, and Hard/Good/Easy intervals are
+rounded to whole days within the configured bounds. FSRS memory is retained for every rating.
+Elapsed days are complete 24-hour periods since the prior review, not local calendar-day
+differences. Planning rejects future-due snapshots, backward clocks, inconsistent state and
+timestamp overflow.
+
+`sql/review.sql` adds one meaning card per saved vocabulary ID and seeds existing favorites without
+inventing ratings. `Store::save` enrolls new favorites in the same transaction and leaves duplicate
+cards' schedules intact. `review_queue` returns due scheduled cards before new cards in bounded
+batches. `commit_review` checks the snapshot revision and transactionally writes the new memory/due
+time, a detailed `fsrs_reviews` event and one legacy-compatible `reviews` activity row. Failed
+writes roll back all three; repeated or stale submissions cannot grade the same revision twice.
+History keeps the entered answer, matching outcome, independent recall rating, elapsed days,
+retention and updated memory. Event IDs remain 64-bit even though sqlite_orm's object-insert
+convenience API returns `int`.
+
+`pawingo.review_ui` composes these contracts into an offline typed-answer session. Enter previews
+the solution and proposed intervals; a separate confirmation commits the rating. Escape from
+feedback restores the draft; leaving a question does not write an event. The host delegates matching
+to the loaded language backend using configured name/code aliases, with conservative saved-meaning
+matching when no backend is available. Semicolon-delimited alternatives, whitespace and ASCII case
+variants are supported; the matcher does not guess synonyms or accept substrings. Ratings can be
+adjusted independently when the automated assessment is incomplete.
+
+The home Review entry and `r` shortcut open the shared queue. The calendar reads committed activity
+only. Legacy vocabulary and activity rows remain intact; legacy reviews without four-way ratings are
+not replayed as FSRS history. Queue size is a batch size rather than a daily study cap. Automatic
+parameter optimization, alternative question types and multi-step learning ladders are not yet
+implemented. See [review usage](review.md).
 
 ## Configuration ownership and hardcoding audit
 

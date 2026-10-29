@@ -2,10 +2,25 @@ export module pawingo.storage;
 
 import std;
 export import pawingo.host;
+export import pawingo.review;
 
 /// Shared SQLite persistence, independent of language panels and the terminal renderer.
 export namespace pawingo {
 enum class OnlinePolicy { ask, allow, offline };
+
+enum class ReviewStoreErrorKind { invalid_input, missing, stale, storage };
+
+/// Typed review persistence failure; database diagnostics are for the frontend boundary only.
+struct ReviewStoreError {
+  ReviewStoreErrorKind kind;
+  std::string message;
+};
+
+struct ReviewQueueRequest {
+  std::chrono::sys_seconds now;
+  std::size_t limit = 1;
+  std::string language; ///< Empty selects all saved languages, including unavailable plugins.
+};
 
 /// Owns one SQLite connection. Persisted enum values form part of its schema.
 class Store : public Host {
@@ -35,6 +50,17 @@ public:
     Match result,
     std::int64_t reviewed_at,
     std::int64_t next_review_at);
+  /// Returns due snapshots, scheduled cards before new cards, then ordered by due time and ID.
+  /// Limit must be 1..1000 and now must be nonnegative. No schedules or logs are changed.
+  std::expected<std::vector<review::Card>, ReviewStoreError>
+  review_queue(const ReviewQueueRequest &);
+  /// Atomically compares the revision, updates memory/due time and writes both the FSRS event and
+  /// its activity record. Failure rolls back all three. A repeated/stale submission cannot grade
+  /// the card twice. The Store must be used from one owner thread; SQLite serializes connections.
+  std::expected<void, ReviewStoreError> commit_review(const review::Commit &);
+  /// Returns graded FSRS history in event-ID order; legacy unrated reviews remain activity only.
+  std::expected<std::vector<review::Record>, ReviewStoreError>
+  review_history(std::int64_t vocabulary_id);
 
 private:
   struct Impl;

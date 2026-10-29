@@ -22,6 +22,7 @@ import pawingo.japanese.examples;
 import pawingo.io;
 import pawingo.tasks;
 import pawingo.ui;
+import pawingo.review;
 import pawingo.japanese.search;
 import pawingo.japanese.settings;
 import pawingo.japanese.voicevox;
@@ -330,7 +331,7 @@ public:
   }
 
   pawingo::MatchResult match(const pawingo::Vocabulary &v, const std::string &answer) override {
-    return {answer == v.meaning ? pawingo::Match::correct : pawingo::Match::incorrect, ""};
+    return pawingo::review::match_meaning(v, answer);
   }
 
   std::vector<std::string> panels() const override {
@@ -348,10 +349,11 @@ public:
       auto search = pawingo::japanese::search_panel(
         dictionary_,
         host,
-        [service = voicevox_](const pawingo::Vocabulary &word, std::stop_token stop) {
+        [service = voicevox_](const pawingo::japanese::SpeechRequest &request,
+          std::stop_token stop) {
           State state;
           state.voicevox = service;
-          speak(state, {.text = word.expression, .reading = word.reading}, stop);
+          speak(state, request, stop);
           return state.message;
         },
         examples_

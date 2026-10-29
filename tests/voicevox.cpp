@@ -126,12 +126,12 @@ int main(int argc, char **argv) {
     std::ofstream(host.dictionary) << R"(<JMdict><entry><ent_seq>1</ent_seq>
       <k_ele><keb>橋</keb></k_ele><r_ele><reb>はし</reb></r_ele>
       <sense><gloss>bridge</gloss></sense></entry></JMdict>)";
-    std::promise<pawingo::Vocabulary> received;
+    std::promise<SpeechRequest> received;
     auto spoken_word = received.get_future();
     std::atomic<bool> delivered = false;
     auto panel = search_panel(std::make_shared<Dictionary>(),
       host,
-      [&](const pawingo::Vocabulary &word, std::stop_token) {
+      [&](const SpeechRequest &word, std::stop_token) {
         if (!delivered.exchange(true))
           received.set_value(word);
         return std::string{};
@@ -147,7 +147,7 @@ int main(int argc, char **argv) {
     require(spoken_word.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready,
       "search pronunciation dispatches on its worker");
     auto selected = spoken_word.get();
-    require(selected.expression == "橋" && selected.reading == "はし",
+    require(selected.text == "橋" && selected.reading == "はし",
       "search speech adapter receives both selected spelling and reading");
   } catch (const std::exception &e) {
     std::cerr << e.what() << '\n';

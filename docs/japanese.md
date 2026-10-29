@@ -114,8 +114,16 @@ imported non-English translations. Concurrent imports from separate processes ar
 Details show up to five linked examples, with checked usages first. Up/Down scrolls the bounded
 detail region. Source and translation IDs link to their Tatoeba pages; contributor attribution and
 the export's CC BY 2.0 FR notice remain visible. The four-column export does not contain author
-names, so Pawingo retains attribution links rather than inventing individual author metadata. Ctrl+S
-and Ctrl+P continue to save/pronounce the selected **word**, not an arbitrary example sentence.
+names, so Pawingo retains attribution links rather than inventing individual author metadata.
+
+Tab / Shift+Tab cycles between the word and its Japanese example sentences. A terracotta dot and
+accent text identify the current speech target; selecting an example scrolls it into view. Ctrl+P
+speaks that target using the configured voice. Sentences retain their complete Japanese text and
+punctuation, without applying the word's reading to them. Selection remains responsive during
+playback; a running request keeps its original target, and overlapping playback is ignored. Up/Down
+still scrolls the detail region. Ctrl+S always saves the dictionary word, even when an example is
+selected. Escape returns to the result list and cancels pending work; reopening a word selects the
+word again.
 
 Association follows
 [EDRDG's index format](https://www.edrdg.org/wiki/Sentence-Dictionary_Linking.html): explicit JMdict

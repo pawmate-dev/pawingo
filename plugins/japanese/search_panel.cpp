@@ -39,6 +39,9 @@ struct SearchState {
   std::string examples_status;
   bool examples_loading = false;
   std::string searched_query, searched_target;
+  // Zero selects the word; subsequent positions select Japanese example sentences.
+  int speech_selection = 0;
+  bool follow_selection = true;
   float detail_scroll = 0.F;
   int field = 0, selected = 0, resource_choice = 0;
   std::mutex mutex;
@@ -202,6 +205,12 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
       examples = state->examples;
       examples_status = state->examples_status;
     }
+    if (state->page == Page::detail && state->detail) {
+      const bool selected = state->speech_selection == 0;
+      content[0] = hbox({text(selection(selected)) | color(accent),
+                     text(state->detail->expression) | color(selected ? accent : ink)}) |
+        hcenter;
+    }
     if (state->page == Page::search) {
       content.push_back(hbox({text("⌕  ") | color(accent),
         query->Render() |
@@ -242,7 +251,10 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
       const auto &word = *state->detail;
       content.push_back(text(word.reading) | color(secondary) | hcenter);
       content.push_back(text(""));
-      Elements body{paragraph(word.meaning) | color(ink),
+      auto meaning = paragraph(word.meaning) | color(ink);
+      if (state->follow_selection && state->speech_selection == 0)
+        meaning = meaning | focus;
+      Elements body{meaning,
         text(""),
         paragraph(word.source + "  ·  " + word.meaning_language) | color(muted)};
       if (!word.context.empty()) {
@@ -253,9 +265,15 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
       body.push_back(text(ui_text("examples_title")) | color(secondary));
       if (!examples_status.empty())
         body.push_back(paragraph(examples_status) | color(muted));
-      for (const auto &example : examples) {
+      for (std::size_t i = 0; i < examples.size(); ++i) {
+        const auto &example = examples[i];
+        const bool selected = state->speech_selection == static_cast<int>(i + 1);
         body.push_back(text(""));
-        body.push_back(paragraph(example.text) | color(ink));
+        auto sentence = hbox({text(selection(selected)) | color(accent),
+          paragraph(example.text) | color(selected ? accent : ink) | flex});
+        if (selected && state->follow_selection)
+          sentence = sentence | focus;
+        body.push_back(sentence);
         body.push_back(paragraph(example.translation.empty()
                            ? ui_text("no_example_translation") + example.translation_language
                            : example.translation) |
@@ -275,8 +293,11 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
                          examples.front().license) |
           color(muted));
       }
-      content.push_back(vbox(std::move(body)) | focusPositionRelative(0.F, state->detail_scroll) |
-        yframe | size(HEIGHT, EQUAL, settings().integer("layout.detail_height", 1, 30)));
+      auto detail = vbox(std::move(body));
+      if (!state->follow_selection)
+        detail = detail | focusPositionRelative(0.F, state->detail_scroll);
+      content.push_back(detail | yframe |
+        size(HEIGHT, EQUAL, settings().integer("layout.detail_height", 1, 30)));
     } else {
       content.push_back(text(ui_text("resource_title")) | color(secondary));
       content.push_back(text(""));
@@ -423,6 +444,8 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
             std::lock_guard lock(state->mutex);
             state->message = progress;
             state->examples.clear();
+            state->speech_selection = 0;
+            state->follow_selection = true;
             state->examples_status = ui_text("loading_examples");
             state->examples_loading = true;
           }
@@ -470,6 +493,14 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
           return fields->OnEvent(event);
         return true;
       }
+      if (state->page == Page::detail && (event == Event::Tab || event == Event::TabReverse)) {
+        std::lock_guard lock(state->mutex);
+        const int count = static_cast<int>(state->examples.size()) + 1;
+        state->speech_selection =
+          (state->speech_selection + (event == Event::Tab ? 1 : count - 1)) % count;
+        state->follow_selection = true;
+        return true;
+      }
       if (state->page == Page::search && (event == Event::Tab || event == Event::TabReverse)) {
         state->field = 1 - state->field;
         return true;
@@ -487,6 +518,8 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
             state->page = Page::detail;
             state->message.clear();
             state->examples.clear();
+            state->speech_selection = 0;
+            state->follow_selection = true;
             state->examples_status = ui_text("loading_examples");
             state->examples_loading = true;
             detail = state->detail;
@@ -507,6 +540,7 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
       }
       if (event == Event::ArrowDown || event == Event::ArrowUp) {
         if (state->page == Page::detail) {
+          state->follow_selection = false;
           const float step =
             settings().integer("layout.detail_scroll_step_percent", 1, 100) / 100.F;
           state->detail_scroll =
@@ -522,12 +556,17 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
       }
       if (event == Event::CtrlS || event == Event::CtrlP) {
         Vocabulary word;
+        SpeechRequest request;
         {
           std::lock_guard lock(state->mutex);
           if (state->results.empty() || state->selected >= static_cast<int>(state->results.size()))
             return true;
           word = state->page == Page::detail && state->detail ? *state->detail
                                                               : state->results[state->selected];
+          request = {.text = word.expression, .reading = word.reading};
+          if (state->page == Page::detail && state->speech_selection > 0 &&
+            state->speech_selection <= static_cast<int>(state->examples.size()))
+            request = {.text = state->examples[state->speech_selection - 1].text};
         }
         if (event == Event::CtrlS) {
           try {
@@ -539,8 +578,8 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
         } else if (!state->job.running()) {
           message(*state, ui_text("playing"));
           launch(*state,
-            [state = state.get(), speech, word = std::move(word)](std::stop_token stop) {
-              message(*state, speech(word, stop));
+            [state = state.get(), speech, request = std::move(request)](std::stop_token stop) {
+              message(*state, speech(request, stop));
             });
         }
         return true;

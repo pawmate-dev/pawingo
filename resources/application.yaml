@@ -27,6 +27,21 @@ activity:
   today: ○
 review:
   desired_retention: 0.9
+  again_seconds: 600
+  minimum_interval_days: 1
+  maximum_interval_days: 36500
+  queue_batch_size: 50
+  body_height: 8
+  meaning_height: 3
+  source_height: 1
+  rating_width: 12
+  scroll_step_percent: 10
+  status_height: 2
+  rating_labels: [again, hard, good, easy]
+language_codes:
+  Japanese: ja
+  German: de
+  English: en
 services:
   default_policy: ask
 network:
@@ -46,3 +61,16 @@ messages:
   select_enter_open_esc_back: "↑ ↓  select    enter  open    esc  back"
   no_plugins_available_for_download_yet: "No plugins available for download yet."
   esc_back: "esc  back"
+  review: "Review"
+  review_answer: "meaning"
+  review_correct: "correct"
+  review_acceptable: "accepted"
+  review_blank_answer: "—"
+  review_operation_failed: "Review operation failed."
+  review_check_answer: "check answer"
+  review_no_due: "No cards due."
+  review_storage_changed: "This card changed elsewhere; the queue has been refreshed."
+  review_question_help: "enter  check    esc  back"
+  review_feedback_help: "←→ rating  ↑↓ meaning  enter confirm  1–4 rate  esc edit"
+  review_empty_help: "enter  refresh    esc  back"
+  review_home_help: "↑ ↓  select    enter  open    r  review    q  quit"

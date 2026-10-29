@@ -135,4 +135,92 @@ bool exact(std::string_view answer, std::string_view expected) {
   const auto a = normalize(answer);
   return !a.empty() && a == normalize(expected);
 }
+
+MatchResult match_meaning(const Vocabulary &word, std::string_view answer) {
+  auto key = [](std::string_view value) {
+    auto result = normalize(value);
+    for (char &c : result)
+      if (c >= 'A' && c <= 'Z')
+        c += 'a' - 'A';
+    return result;
+  };
+  const auto submitted = key(answer);
+  if (submitted.empty())
+    return {Match::incorrect, {}};
+  auto matches = [&](std::string_view expected) -> std::optional<MatchResult> {
+    if (submitted != key(expected))
+      return {};
+    return MatchResult{answer == normalize(expected) ? Match::correct : Match::acceptable, {}};
+  };
+  if (auto full = matches(word.meaning))
+    return *full;
+  std::string_view remaining(word.meaning);
+  for (;;) {
+    const auto end = remaining.find(';');
+    if (auto alternative = matches(remaining.substr(0, end)))
+      return *alternative;
+    if (end == std::string_view::npos)
+      break;
+    remaining.remove_prefix(end + 1);
+  }
+  return {Match::incorrect, {}};
+}
+
+std::expected<Plan, Error>
+plan_review(const Scheduler &scheduler, const Card &card, std::chrono::sys_seconds now) {
+  auto invalid = [] {
+    return std::unexpected(Error{ErrorKind::invalid_input,
+      "Invalid or future-due review snapshot."});
+  };
+  if (card.word.id <= 0 || card.revision < 0 ||
+    card.revision == std::numeric_limits<std::int64_t>::max() ||
+    now.time_since_epoch().count() < 0 || card.due.time_since_epoch().count() < 0 ||
+    now < card.due || card.memory.has_value() != card.last_review.has_value())
+    return invalid();
+  std::chrono::days elapsed{};
+  if (card.last_review) {
+    if (card.last_review->time_since_epoch().count() < 0 || now < *card.last_review ||
+      card.due < *card.last_review)
+      return invalid();
+    elapsed = std::chrono::duration_cast<std::chrono::days>(now - *card.last_review);
+  }
+  try {
+    struct Policy {
+      int again, minimum, maximum;
+      float retention;
+    };
+
+    static const auto policy = [] {
+      const auto &config = pawingo::config::application();
+      Policy value{config.integer("review.again_seconds", 1, 86400),
+        config.integer("review.minimum_interval_days", 1, 3650000),
+        config.integer("review.maximum_interval_days", 1, 3650000),
+        config.real("review.desired_retention", 0.F, 1.F)};
+      if (value.minimum > value.maximum || value.retention <= 0.F || value.retention >= 1.F)
+        throw std::runtime_error("Invalid review interval or retention policy.");
+      return value;
+    }();
+    auto next = scheduler.next_states({card.memory, elapsed, policy.retention});
+    if (!next)
+      return std::unexpected(next.error());
+    Plan result{card.word.id, card.revision, now, elapsed, policy.retention, {}};
+    const std::array states{next->again, next->hard, next->good, next->easy};
+    for (std::size_t i = 0; i < states.size(); ++i) {
+      const auto days = static_cast<std::int64_t>(
+        std::round(std::clamp(static_cast<double>(states[i].interval.count()),
+          double(policy.minimum),
+          double(policy.maximum)))
+      );
+      const auto seconds = i == 0 ? std::int64_t(policy.again) : days * 86400;
+      if (now.time_since_epoch().count() > std::numeric_limits<std::int64_t>::max() - seconds)
+        return invalid();
+      result.outcomes[i] = {states[i].memory,
+        std::chrono::seconds(seconds),
+        now + std::chrono::seconds(seconds)};
+    }
+    return result;
+  } catch (const std::exception &e) {
+    return std::unexpected(Error{ErrorKind::configuration, e.what()});
+  }
+}
 } // namespace pawingo::review

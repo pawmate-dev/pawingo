@@ -33,7 +33,7 @@ messages:
   select_enter_open: "↑ ↓  select    enter  open"
   enter_find_select_tab_target_s: "enter find  ↑↓ select  tab target  ^s save  ^p speak  ^d dict"
   enter_open_select_tab_target_s: "enter open  ↑↓ select  tab target  ^s save  ^p speak  ^d dict"
-  detail_shortcuts: "↑↓ scroll  ^s save  ^p speak  ^d dict"
+  detail_shortcuts: "tab/shift+tab select  ↑↓ scroll  ^p speak  ^s save word  ^d dict"
   resource_title: "Dictionaries & examples"
   resource_file_path: "/path/to/resource.tsv.gz"
   enter_resource_file_path: "Enter a local resource file path."

@@ -197,6 +197,11 @@ int main(int argc, char **argv) {
     setenv("PAWINGO_JMDICT", argv[2], 1);
     auto backend = plugin->search("猫", "en");
     require(backend.size() == 2 && backend[0].expression == "猫", "backend vocabulary search");
+    require(
+      plugin->match(backend[0], "feline").result == pawingo::Match::correct &&
+        plugin->match(backend[0], " CAT ").result == pawingo::Match::acceptable,
+      "Japanese review assessment accepts a saved meaning alternative without requiring every gloss"
+    );
     {
       auto panel = plugin->create_panel("語彙検索", host);
       require(bool(panel), "search panel");

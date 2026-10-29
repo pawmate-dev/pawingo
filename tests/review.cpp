@@ -18,6 +18,14 @@ int main() {
     static_assert(std::is_nothrow_move_constructible_v<Scheduler>);
     auto model = Scheduler::create();
     require(bool(model), "create default FSRS model");
+    pawingo::Vocabulary vocabulary{"ja", "猫", "ねこ", "eng", "cat; feline", "fixture", "", 1};
+    require(match_meaning(vocabulary, "feline").result == pawingo::Match::correct &&
+        match_meaning(vocabulary, " CAT ").result == pawingo::Match::acceptable,
+      "a saved gloss alternative and conservative normalized variant can answer a meaning card");
+    require(match_meaning(vocabulary, "ca").result == pawingo::Match::incorrect &&
+        match_meaning(vocabulary, "a cat").result == pawingo::Match::incorrect &&
+        match_meaning(vocabulary, " ").result == pawingo::Match::incorrect,
+      "meaning matching does not accept substrings, guessed synonyms or blank answers");
     auto next = model->next_states({});
     require(bool(next), "schedule new card");
     // Golden values from the pinned upstream 6.6.2 scheduling example, not product YAML.
@@ -29,6 +37,34 @@ int main() {
     require(near(next->good.interval.count(), 2.3065F) &&
         near(next->good.memory.difficulty, 2.118104F),
       "default retention preserves fractional-day intervals and difficulty");
+    const auto now = std::chrono::sys_seconds(std::chrono::seconds(1000000));
+    Card card{vocabulary, {}, {}, {}, 0};
+    auto planned = plan_review(*model, card, now);
+    require(planned && planned->outcomes[0].interval == std::chrono::minutes(10) &&
+        planned->outcomes[2].interval == std::chrono::days(2) &&
+        planned->outcomes[3].interval == std::chrono::days(8) &&
+        planned->outcomes[0].memory == next->again.memory,
+      "host policy rounds daily intervals and applies a short Again step without replacing FSRS "
+      "memory");
+    card.memory = planned->outcomes[2].memory;
+    card.last_review = now;
+    card.due = planned->outcomes[2].due;
+    card.revision = 1;
+    auto future = plan_review(*model, card, now);
+    require(!future && future.error().kind == ErrorKind::invalid_input,
+      "a future-due card cannot be planned early");
+    auto due = plan_review(*model, card, card.due);
+    require(due && due->elapsed == std::chrono::days(2),
+      "persisted memory resumes with elapsed whole 24-hour days");
+    Card inconsistent_card{vocabulary, next->good.memory, {}, {}, 0};
+    require(!plan_review(*model, inconsistent_card, now),
+      "memory requires a corresponding prior review time");
+    Card overflow_card{vocabulary, {}, {}, {}, 0};
+    auto time_overflow = plan_review(*model,
+      overflow_card,
+      std::chrono::sys_seconds(std::chrono::seconds(std::numeric_limits<std::int64_t>::max())));
+    require(!time_overflow && time_overflow.error().kind == ErrorKind::invalid_input,
+      "interval scheduling cannot overflow Unix-second timestamps");
 
     auto strict = model->next_states({.desired_retention = 0.95F});
     require(strict && strict->good.interval < next->good.interval &&

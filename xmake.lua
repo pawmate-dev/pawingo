@@ -118,7 +118,7 @@ target("pawingo-runtime")
     embed_application(target, context)
   end)
   add_files("modules/*.cppm", {public = true})
-  add_files("src/settings.cpp", "src/ui/input.cpp", "src/io/diagnostics.cpp", "src/review/scheduler.cpp", "src/download.cpp", "src/storage/store.cpp", "src/plugins/registry.cpp", "src/learning/search.cpp")
+  add_files("src/settings.cpp", "src/ui/input.cpp", "src/io/diagnostics.cpp", "src/review/scheduler.cpp", "src/review/panel.cpp", "src/download.cpp", "src/storage/store.cpp", "src/plugins/registry.cpp", "src/learning/search.cpp")
   add_packages("ftxui", "yaml-cpp", "sqlite_orm", "libcurl", "picosha2", {public = true})
   add_syslinks("sqlite3", "dl", "pthread", "m", {public = true})
   if is_plat("linux", "macosx") then add_cxflags("-fPIC") end
@@ -168,10 +168,12 @@ for _, spec in ipairs({
   {"japanese-tests", "tests/japanese.cpp", "native"},
   {"japanese-dictionary-tests", "tests/japanese_dictionary.cpp", "backend"},
   {"japanese-examples-tests", "tests/japanese_examples.cpp", "backend"},
+  {"japanese-search-tests", "tests/japanese_search.cpp", "backend"},
   {"download-tests", "tests/download.cpp", "runtime"},
   {"background-job-tests", "tests/background_job.cpp", "runtime"},
   {"diagnostics-tests", "tests/diagnostics.cpp", "runtime"},
   {"review-tests", "tests/review.cpp", "runtime"},
+  {"study-tests", "tests/study.cpp", "runtime"},
   {"voicevox-tests", "tests/voicevox.cpp", "backend"},
   {"voicevox-install-tests", "tests/voicevox_install.cpp", "backend"},
   {"settings-tests", "tests/settings.cpp", "runtime"}
