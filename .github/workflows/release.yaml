@@ -1,0 +1,54 @@
+name: Linux release draft
+on:
+    push:
+        tags: ["v*"]
+    workflow_dispatch:
+permissions:
+    contents: write
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: false
+jobs:
+    linux-x86_64:
+        runs-on: ubuntu-latest
+        container: archlinux:base-devel
+        env:
+            XMAKE_ROOT: y
+            PAWINGO_RELEASE_BUILD: ${{ github.sha }}
+        steps:
+            - name: Install build and packaging tools
+              run: >-
+                  pacman -Syu --noconfirm --needed git clang llvm gcc xmake rust just pkgconf cmake ninja
+                  ftxui sqlite expat zlib curl libarchive yaml-cpp python patchelf github-cli uv
+            - uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+            - name: Validate release tag
+              shell: bash
+              run: |
+                  [[ "$GITHUB_REF_TYPE" == tag ]]
+                  [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+                  git config --global --add safe.directory "$GITHUB_WORKSPACE"
+            - name: Configure and verify
+              run: |
+                  xmake f -y -m release --toolchain=clang
+                  just build
+                  just test
+                  uvx ruff check tools/release.py tests/test_release.py
+                  uvx ruff format --check tools/release.py tests/test_release.py
+            - name: Package plugin and generate catalog
+              run: python tools/release.py plugin --tag "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"
+            - name: Embed final catalog and package host
+              env:
+                  PAWINGO_CATALOG_SOURCE: build/release/plugins-v1.yaml
+              run: |
+                  xmake build pawingo
+                  python tools/release.py core --tag "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"
+            - name: Create draft with complete assets
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: >-
+                  gh release create "$GITHUB_REF_NAME" build/release/*.tar.gz
+                  build/release/plugins-v1.yaml build/release/SHA256SUMS
+                  --repo "$GITHUB_REPOSITORY" --verify-tag --draft --generate-notes

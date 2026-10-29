@@ -5,6 +5,7 @@ module pawingo.plugins;
 
 import std;
 import pawingo.plugin;
+import pawingo.packages;
 
 namespace pawingo {
 struct Plugins::Impl {
@@ -71,6 +72,11 @@ void Plugins::discover(const std::string &directory) {
     return;
   }
   std::vector<std::filesystem::path> paths;
+  packages::Manager managed(directory);
+  if (auto enabled = managed.enabled())
+    paths = std::move(*enabled);
+  else
+    impl_->errors.push_back(enabled.error().message);
   for (std::filesystem::directory_iterator it(directory, ec), end; !ec && it != end;
     it.increment(ec))
     if (it->path().extension() == ".so")

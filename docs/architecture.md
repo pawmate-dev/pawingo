@@ -19,6 +19,8 @@ as their interface; project dependencies use `import` or `export import`.
 | Module                                                  | Responsibility                                                                         |
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `pawingo.types`, `pawingo.host`                         | Shared vocabulary/resource models and borrowed host services                           |
+| `pawingo.build`                                         | Compiled host/platform/toolchain identity shared with native descriptors               |
+| `pawingo.packages`, `pawingo.packages_ui`               | Offline catalog, verified versioned installation, restart activation and download TUI  |
 | `pawingo.plugin`                                        | Native plugin descriptor, language contract, and optional panel help                   |
 | `pawingo.config`                                        | Immutable, frontend-neutral configuration and user paths                               |
 | `pawingo.io`, `pawingo.tasks`                           | Temporary artifacts and cancellable worker ownership                                   |
@@ -48,13 +50,13 @@ remain in the global module and import project modules. These are entry boundari
 header-based API. `just check-modules` enforces project imports and module declarations and runs
 before `just test`.
 
-The ABI tag includes `modules-2`. Older plugin binaries must be rebuilt after the typed-card
-contract change. Named modules affect C++ linkage and RTTI; question types also extend the shared
-card contract. The native `pawingo_plugin_v1` descriptor entry shape is unchanged, but its ABI tag
-rejects old binaries. Native entry adapters explicitly export their C symbol (`dllexport` on Windows
-and default symbol visibility on ELF/Mach-O); C++ module `export` alone does not export a symbol
-from a shared library. Compiler, standard library, flags, and FTXUI compatibility still apply; BMIs
-are compiler-specific build artifacts.
+The ABI tag includes `modules-3` and the release build identity. Older plugin binaries must be
+rebuilt after the typed-card contract change. Named modules affect C++ linkage and RTTI; question
+types also extend the shared card contract. The native `pawingo_plugin_v1` descriptor entry shape is
+unchanged, but its ABI tag rejects old binaries. Native entry adapters explicitly export their C
+symbol (`dllexport` on Windows and default symbol visibility on ELF/Mach-O); C++ module `export`
+alone does not export a symbol from a shared library. Compiler, standard library, flags, and FTXUI
+compatibility still apply; BMIs are compiler-specific build artifacts.
 
 ## Text input and IME positioning
 
@@ -283,3 +285,13 @@ SQL migrations likewise generate `pawingo.assets.sql`; application defaults gene
 `pawingo.assets.application`. Resource consumers import these modules. Generated modules are private
 implementation dependencies; installed programs require neither generated source files nor the
 original YAML/SQL files.
+
+## Release distribution
+
+The host embeds `resources/plugins.yaml` through a host-owned generated asset module. Release
+packaging first creates the plugin artifact and its checksum-pinned catalog, then rebuilds only the
+host to embed that exact catalog. This avoids a checksum cycle between the host binary and its own
+embedded metadata. The compatibility identity is compiled into both native descriptors and package
+metadata. The download panel uses one cancellable worker and asks the UI-owned Store for service
+policy before starting network work. Installation never invokes dlopen; registered entries are
+validated and loaded on the next startup. See [release and package contracts](releases.md).

@@ -4,6 +4,7 @@ module;
 export module pawingo.plugin;
 
 import std;
+export import pawingo.build;
 export import pawingo.host;
 
 /// Plugins and the host must use the same C++ ABI, standard library and FTXUI.
@@ -56,17 +57,7 @@ using PluginEntry = const PluginDescriptor *(*)();
 
 /// This tag is a necessary compatibility check, not a substitute for using the
 /// same compiler, standard library, build flags and FTXUI installation.
-#if defined(__clang__)
-#define PAWINGO_COMPILER_TAG "clang-" __clang_version__
-#elif defined(__GNUC__)
-#define PAWINGO_STRINGIFY_IMPL(x) #x
-#define PAWINGO_STRINGIFY(x) PAWINGO_STRINGIFY_IMPL(x)
-#define PAWINGO_COMPILER_TAG \
-  "gcc-" PAWINGO_STRINGIFY(__GNUC__) "." PAWINGO_STRINGIFY(__GNUC_MINOR__)
-#else
-#define PAWINGO_COMPILER_TAG "unknown"
-#endif
-inline constexpr const char *plugin_abi_tag = PAWINGO_COMPILER_TAG ";ftxui-6.1.9;api-1;modules-2";
+inline constexpr const char *plugin_abi_tag = build::abi;
 } // namespace pawingo
 
 /// Export exactly this C symbol from a plugin:

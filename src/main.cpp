@@ -9,6 +9,8 @@ import pawingo.plugin;
 import pawingo.ui;
 import pawingo.io;
 import pawingo.review_ui;
+import pawingo.packages_ui;
+import pawingo.assets.catalog;
 
 namespace config = pawingo::config;
 
@@ -115,10 +117,48 @@ ftxui::Element activity(pawingo::Store &store) {
 }
 } // namespace
 
-int main() {
+int main(int argc, char **argv) {
   try {
     using namespace ftxui;
     using namespace pawingo::ui;
+    if (argc == 2 && std::string_view(argv[1]) == "--build-info") {
+      std::cout << pawingo::packages::build_info(pawingo::catalog_assets::plugins) << '\n';
+      return 0;
+    }
+    if (argc == 3 && std::string_view(argv[1]) == "--check-plugin") {
+      pawingo::Plugins check;
+      check.load(argv[2]);
+      std::cout << check.languages().front()->language() << '\n';
+      return 0;
+    }
+    if (argc == 5 && std::string_view(argv[1]) == "--install-plugin") {
+      const std::filesystem::path catalog(argv[4]);
+      if (std::filesystem::file_size(catalog) >
+        static_cast<unsigned>(config::application().integer("packages.catalog_bytes", 1, 4194304)))
+        throw std::invalid_argument("Plugin catalog exceeds its byte limit.");
+      std::ifstream input(catalog);
+      if (!input)
+        throw std::runtime_error("Cannot open plugin catalog.");
+      std::string yaml(std::istreambuf_iterator<char>(input), {});
+      pawingo::packages::Manager manager(data_dir() / config::application().text("storage.plugins"),
+        std::move(yaml));
+      auto offers = manager.offers();
+      if (!offers)
+        throw std::runtime_error(offers.error().message);
+      auto offer = std::ranges::find_if(*offers, [&](const auto &item) {
+        return item.package.id == argv[2];
+      });
+      if (offer == offers->end())
+        throw std::invalid_argument("Plugin is absent from this catalog.");
+      auto installed = manager.install_archive(*offer, argv[3]);
+      if (!installed)
+        throw std::runtime_error(installed.error().message);
+      std::cout << "Installed. Restart Pawingo to load the plugin.\n";
+      return 0;
+    }
+    if (argc != 1)
+      throw std::invalid_argument("Usage: pawingo [--build-info | --check-plugin LIBRARY | "
+                                  "--install-plugin ID ARCHIVE CATALOG]");
     auto directory = data_dir();
     std::filesystem::create_directories(directory);
     // Native runtimes may log from their own threads; keep stderr away from the terminal until
@@ -135,6 +175,12 @@ int main() {
     auto languages = plugins.languages();
     auto screen = ScreenInteractive::Fullscreen();
     UiHost ui_host(store, screen);
+    auto package_manager = std::make_shared<pawingo::packages::Manager>(directory /
+        config::application().text("storage.plugins"),
+      pawingo::catalog_assets::plugins);
+    auto downloads = pawingo::ui::package_panel(package_manager, store, [&screen] {
+      screen.PostEvent(Event::Custom);
+    });
     enum class Page { home, features, panel, download };
     Page page = Page::home;
     int choice = 0;
@@ -194,11 +240,8 @@ int main() {
         content.push_back(text(""));
         footer = ui_text("select_enter_open_esc_back");
       } else if (page == Page::download) {
-        content = {text(ui_text("get_plugins")) | color(ink),
-          text(""),
-          text(ui_text("no_plugins_available_for_download_yet")) | color(secondary),
-          text("")};
-        footer = ui_text("esc_back");
+        content.push_back(downloads.component->Render());
+        footer = downloads.help();
       } else {
         content.push_back(plugin_panel->Render());
         if (auto *help = dynamic_cast<pawingo::PanelHelpProvider *>(current))
@@ -211,6 +254,15 @@ int main() {
       return vbox({body, text(footer) | color(muted) | hcenter, text("")});
     });
     auto events = CatchEvent(app, [&](Event event) {
+      if (page == Page::download) {
+        if (event == Event::Escape && !downloads.component->OnEvent(event)) {
+          page = Page::home;
+          return true;
+        }
+        if (event == Event::Escape)
+          return true;
+        return downloads.component->OnEvent(event);
+      }
       if (page == Page::panel) {
         if (event == Event::Escape) {
           // Let the panel dismiss a local prompt before leaving the feature.

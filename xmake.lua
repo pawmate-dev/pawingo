@@ -1,5 +1,6 @@
 set_project("pawingo")
-set_version("0.2.0")
+local pawingo_version = "0.2.0"
+set_version(pawingo_version)
 set_languages("cxx26")
 set_policy("build.c++.modules", true)
 add_rules("mode.debug", "mode.release")
@@ -116,10 +117,16 @@ target("pawingo-runtime")
     local context = {io=io, os=os, path=path, assert=assert, table=table, ipairs=ipairs}
     embed_sql(target, context)
     embed_application(target, context)
+    import("core.project.config")
+    local identity = os.getenv("PAWINGO_RELEASE_BUILD") or "development"
+    assert(identity:match("^[%w._-]+$") and #identity <= 128, "Invalid release build ID")
+    target:add("defines", 'PAWINGO_HOST_VERSION="' .. pawingo_version .. '"', {public=true})
+    target:add("defines", 'PAWINGO_RELEASE_BUILD="' .. identity .. '"', {public=true})
+    target:add("defines", 'PAWINGO_BUILD_MODE="' .. (config.get("mode") or "release") .. '"', {public=true})
   end)
   add_files("modules/*.cppm", {public = true})
-  add_files("src/settings.cpp", "src/ui/input.cpp", "src/ui/activity.cpp", "src/learning/activity.cpp", "src/io/diagnostics.cpp", "src/review/scheduler.cpp", "src/review/panel.cpp", "src/download.cpp", "src/storage/store.cpp", "src/plugins/registry.cpp", "src/learning/search.cpp")
-  add_packages("ftxui", "yaml-cpp", "sqlite_orm", "libcurl", "picosha2", {public = true})
+  add_files("src/settings.cpp", "src/ui/input.cpp", "src/ui/activity.cpp", "src/learning/activity.cpp", "src/io/diagnostics.cpp", "src/review/scheduler.cpp", "src/review/panel.cpp", "src/download.cpp", "src/storage/store.cpp", "src/plugins/registry.cpp", "src/plugins/packages.cpp", "src/plugins/package_panel.cpp", "src/learning/search.cpp")
+  add_packages("ftxui", "yaml-cpp", "sqlite_orm", "libcurl", "picosha2", "libarchive", {public = true})
   add_syslinks("sqlite3", "dl", "pthread", "m", {public = true})
   if is_plat("linux", "macosx") then add_cxflags("-fPIC") end
 
@@ -139,6 +146,11 @@ target("japanese-backend")
 target("pawingo")
   set_kind("binary")
   add_deps("pawingo-runtime")
+  on_load(function (target)
+    local source = os.getenv("PAWINGO_CATALOG_SOURCE") or "resources/plugins.yaml"
+    embed_assets(target, "pawingo::catalog_assets", "pawingo.assets.catalog", "pawingo_catalog_assets.cppm",
+      {{"plugins", source}}, {io=io, os=os, path=path, assert=assert, table=table, ipairs=ipairs})
+  end)
   add_files("src/main.cpp")
 
 target("japanese")
@@ -176,6 +188,7 @@ for _, spec in ipairs({
   {"review-tests", "tests/review.cpp", "runtime"},
   {"study-tests", "tests/study.cpp", "runtime"},
   {"activity-tests", "tests/activity.cpp", "runtime"},
+  {"package-tests", "tests/packages.cpp", "core"},
   {"voicevox-tests", "tests/voicevox.cpp", "backend"},
   {"voicevox-install-tests", "tests/voicevox_install.cpp", "backend"},
   {"settings-tests", "tests/settings.cpp", "runtime"}
