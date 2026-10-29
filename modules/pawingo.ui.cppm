@@ -33,6 +33,13 @@ inline const auto olive = theme_color("olive");
 inline const auto accent = theme_color("accent");
 inline const int content_width = config::application().integer("theme.content_width", 40, 200);
 
+/// Returns the configured heat level for a daily distinct-word count (zero is no activity).
+/// Invalid YAML thresholds/palette throw runtime_error. Policy is validated once and cached.
+std::size_t activity_level(std::size_t learned_words);
+/// Renders a transparent calendar dot using the original warm/olive palette. All dates use the
+/// same count-based shape and color, including today.
+ftxui::Element activity_dot(std::size_t learned_words);
+
 /// Returns the configured selection glyph and its reserved padding.
 inline std::string selection(bool selected, bool field = false) {
   const auto marks =

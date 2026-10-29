@@ -3,8 +3,16 @@ export module pawingo.learning;
 import std;
 export import pawingo.storage;
 
-/// Provider contracts and offline-first orchestration.
+/// Offline-first provider orchestration and vocabulary-learning statistics.
 export namespace pawingo {
+/// Counts distinct (language, spelling, reading) tuples within each local learning date.
+/// The frontend supplies date_key to choose timezone/calendar policy. Repeated events, question
+/// types, definitions and dictionary sources do not inflate counts. The same word on another day
+/// counts again. No synthetic activity is inserted. An empty date callback throws invalid_argument;
+/// callback failures propagate. Inputs are borrowed only for this synchronous call.
+std::map<std::string, std::size_t> learning_word_counts(std::span<const LearningActivity>,
+  const std::function<std::string(std::int64_t)> &date_key);
+
 /// Only "always" changes the persisted policy; "once" applies to this request.
 enum class Consent { deny, once, always };
 

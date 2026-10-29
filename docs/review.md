@@ -55,8 +55,16 @@ records nothing; only explicit rating confirmation updates learning history.
 
 Escape from feedback returns to the input with the draft preserved. Escape from the question or
 empty queue returns to the language feature list without grading it. New-card enrollment creates no
-learning activity. Actual committed reviews update the home calendar, including repeated same-day
-practice.
+learning activity. The home calendar counts distinct reviewed words per local date, across
+languages. A word is identified by source language, spelling and reading. Repeating the word or
+reviewing its other question types/definition languages/sources on the same day does not increase
+its daily count; reviewing it on another day counts again. Any confirmed recall rating, including
+Again, counts as study; searching, saving, audio playback and answer previews do not.
+
+The calendar uses five foreground shades: 0, 1–4, 5–9, 10–19 and 20+ words. Levels reuse the
+original faint, warm gray, olive and warm ivory theme colors. Today uses the same count-based color
+and glyph as every other date, with no special ring. Thresholds, semantic colors and glyphs live in
+embedded application YAML. Future days remain blank and the terminal background stays transparent.
 
 ## Scheduling and persistence
 

@@ -240,10 +240,15 @@ Review entries belong to language plugins (Japanese exposes `復習`); home only
 plugin downloads alongside the cross-language calendar. Escape from a review question returns to
 that plugin's feature list; feedback consumes Escape to restore editing first. Plugin absence hides
 its entry without deleting its favorites or schedules. The calendar reads committed activity only.
-Legacy vocabulary and activity rows remain intact; legacy reviews without four-way ratings are not
-replayed as FSRS history. Queue size is a batch size rather than a daily study cap. Automatic
-parameter optimization, sentence cards and multi-step learning ladders are not yet implemented. See
-[review usage](review.md).
+`Store::learning_activity` joins timestamps with vocabulary identity; `learning_word_counts` groups
+by the frontend's local-date callback and counts distinct `(language, expression, reading)` tuples.
+Repeated ratings, question types, definition languages and sources do not inflate a day's word
+count. `pawingo.ui::activity_dot` renders five configured heat levels using the original warm
+gray/olive/ivory palette. Today follows the same count-based glyph and color rules as other dates,
+without a special marker. Legacy vocabulary and activity rows remain intact; legacy reviews without
+four-way ratings are not replayed as FSRS history. Queue size is a batch size rather than a daily
+study cap. Automatic parameter optimization, sentence cards and multi-step learning ladders are not
+yet implemented. See [review usage](review.md).
 
 ## Configuration ownership and hardcoding audit
 

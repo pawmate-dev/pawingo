@@ -14,7 +14,7 @@ check-modules:
 
 test: check-modules
     cargo test --manifest-path native/fsrs/Cargo.toml --target-dir build/fsrs --locked
-    xmake build pawingo-tests japanese-tests japanese-dictionary-tests japanese-examples-tests japanese-search-tests japanese-review-tests download-tests background-job-tests diagnostics-tests review-tests study-tests voicevox-tests voicevox-install-tests settings-tests
+    xmake build pawingo-tests japanese-tests japanese-dictionary-tests japanese-examples-tests japanese-search-tests japanese-review-tests download-tests background-job-tests diagnostics-tests review-tests study-tests activity-tests voicevox-tests voicevox-install-tests settings-tests
     xmake run pawingo-tests "$(pwd)/build/test-plugins/libtest-plugin.so"
     xmake run japanese-tests "$(pwd)/build/plugins/libjapanese.so" "$(pwd)/tests/fixtures/jmdict.xml"
     xmake run japanese-dictionary-tests "$(pwd)/tests/fixtures/jmdict.xml"
@@ -26,6 +26,7 @@ test: check-modules
     xmake run diagnostics-tests
     xmake run review-tests
     xmake run study-tests
+    xmake run activity-tests
     xmake run voicevox-tests "$(pwd)/build/test-plugins/libvoicevox-test-runtime.so"
     xmake run voicevox-install-tests
     xmake run settings-tests

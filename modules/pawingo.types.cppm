@@ -19,6 +19,13 @@ struct Vocabulary {
   std::int64_t id = 0;
 };
 
+/// One committed vocabulary review used for calendar statistics, independent of question type.
+/// Definitions and sources are excluded from word identity; language, spelling and reading remain.
+struct LearningActivity {
+  std::int64_t reviewed_at;
+  std::string language, expression, reading;
+};
+
 /// "acceptable" lets a plugin distinguish a tolerated variant from an exact answer.
 enum class Match { correct, acceptable, incorrect };
 

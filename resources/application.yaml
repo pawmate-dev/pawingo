@@ -21,10 +21,9 @@ theme:
     accent: [211, 101, 69]
 activity:
   weeks: 14
-  light_threshold: 3
-  heavy_threshold: 6
-  marks: ['·', '◦', '○', '●']
-  today: ○
+  thresholds: [1, 5, 10, 20]
+  level_colors: [faint, muted, secondary, olive, ink]
+  marks: ['·', '◦', '○', '●', '●']
 review:
   desired_retention: 0.9
   again_seconds: 600

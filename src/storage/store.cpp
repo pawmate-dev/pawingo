@@ -307,6 +307,22 @@ std::vector<std::int64_t> Store::review_timestamps(std::int64_t from, std::int64
     order_by(&ReviewRow::reviewed_at));
 }
 
+std::vector<LearningActivity> Store::learning_activity(std::int64_t from, std::int64_t until) {
+  using namespace sqlite_orm;
+  const auto rows = impl_->db.select(columns(&ReviewRow::reviewed_at,
+                                       &Vocabulary::language,
+                                       &Vocabulary::expression,
+                                       &Vocabulary::reading),
+    inner_join<Vocabulary>(on(c(&ReviewRow::vocabulary_id) == c(&Vocabulary::id))),
+    where(c(&ReviewRow::reviewed_at) >= from && c(&ReviewRow::reviewed_at) < until),
+    order_by(&ReviewRow::reviewed_at));
+  std::vector<LearningActivity> result;
+  result.reserve(rows.size());
+  for (const auto &[at, language, expression, reading] : rows)
+    result.push_back({at, language, expression, reading});
+  return result;
+}
+
 std::expected<void, ReviewStoreError> Store::enroll_review_cards(std::int64_t id,
   std::span<const review::QuestionType> types) {
   return review_operation([&] {

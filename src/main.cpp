@@ -74,11 +74,6 @@ ftxui::Element activity(pawingo::Store &store) {
   using namespace pawingo::ui;
   const auto &defaults = config::application();
   const int weeks = defaults.integer("activity.weeks", 1, 52);
-  const int light = defaults.integer("activity.light_threshold", 1, 10000);
-  const int heavy = defaults.integer("activity.heavy_threshold", light, 10000);
-  const auto marks = defaults.strings("activity.marks");
-  if (marks.size() != 4)
-    throw std::runtime_error("Activity calendar requires four marks.");
   const auto now = std::time(nullptr);
   std::tm today{};
   localtime_r(&now, &today);
@@ -94,9 +89,10 @@ ftxui::Element activity(pawingo::Store &store) {
   tomorrow.tm_hour = 0;
   tomorrow.tm_isdst = -1;
   const auto until = std::mktime(&tomorrow);
-  std::map<std::string, int> counts;
-  for (auto timestamp : store.review_timestamps(start - 86400, until))
-    ++counts[date_key(static_cast<std::time_t>(timestamp))];
+  const auto counts = pawingo::learning_word_counts(store.learning_activity(start - 86400, until),
+    [](std::int64_t timestamp) {
+      return date_key(static_cast<std::time_t>(timestamp));
+    });
   std::array<Elements, 7> rows;
   const auto today_key = date_key(now);
   for (int day = 0; day < weeks * 7; ++day) {
@@ -108,15 +104,9 @@ ftxui::Element activity(pawingo::Store &store) {
       rows[day % 7].push_back(text("   "));
       continue;
     }
-    const int count = counts[date];
-    const bool today_cell = date == today_key;
-    const auto shade = today_cell ? accent : count == 0 ? faint : count < heavy ? olive : ink;
-    const std::string mark = today_cell && count == 0 ? defaults.text("activity.today")
-      : count == 0                                    ? marks[0]
-      : count < light                                 ? marks[1]
-      : count < heavy                                 ? marks[2]
-                                                      : marks[3];
-    rows[day % 7].push_back(hbox({text(mark) | color(shade), text("  ")}));
+    const auto found = counts.find(date);
+    const auto count = found == counts.end() ? std::size_t{0} : found->second;
+    rows[day % 7].push_back(hbox({activity_dot(count), text("  ")}));
   }
   Elements graph;
   for (auto &row : rows)

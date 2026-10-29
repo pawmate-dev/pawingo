@@ -44,6 +44,10 @@ public:
   void set_policy(const std::string &service, OnlinePolicy policy);
   /// Returns review timestamps in the half-open Unix-second interval [from, until).
   std::vector<std::int64_t> review_timestamps(std::int64_t from, std::int64_t until);
+  /// Returns committed reviews with vocabulary identity in [from, until), ordered by timestamp.
+  /// Includes legacy reviews and all recall ratings; enrollment and answer previews add no events.
+  /// SQLite failures propagate. Call from the Store's owner thread.
+  std::vector<LearningActivity> learning_activity(std::int64_t from, std::int64_t until);
   /// Appends a review for an existing entry, using Unix-second timestamps.
   /// SQLite foreign-key failures propagate; this method does not choose the next interval.
   void record_review(std::int64_t vocabulary_id,
