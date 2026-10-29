@@ -20,9 +20,10 @@ public:
   std::string review_language;
 
   pawingo::ui::ReviewPanel create_review_panel(const std::string &language,
-    pawingo::ui::AnswerMatcher matcher) override {
+    pawingo::ui::AnswerMatcher matcher,
+    pawingo::ui::ReviewContent content = {}) override {
     review_language = language;
-    return pawingo::ui::review_panel(store, language, std::move(matcher));
+    return pawingo::ui::review_panel(store, language, std::move(matcher), {}, std::move(content));
   }
 
   void request_redraw() override {

@@ -208,7 +208,8 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
     if (state->page == Page::detail && state->detail) {
       const bool selected = state->speech_selection == 0;
       content[0] = hbox({text(selection(selected)) | color(accent),
-                     text(state->detail->expression) | color(selected ? accent : ink)}) |
+                     text(state->detail->expression) | color(selected ? accent : ink),
+                     text(selection(false))}) |
         hcenter;
     }
     if (state->page == Page::search) {
@@ -269,15 +270,14 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
         const auto &example = examples[i];
         const bool selected = state->speech_selection == static_cast<int>(i + 1);
         body.push_back(text(""));
-        auto sentence = hbox({text(selection(selected)) | color(accent),
-          paragraph(example.text) | color(selected ? accent : ink) | flex});
+        auto sentence = paragraph(example.text) | color(selected ? accent : ink);
         if (selected && state->follow_selection)
           sentence = sentence | focus;
-        body.push_back(sentence);
-        body.push_back(paragraph(example.translation.empty()
-                           ? ui_text("no_example_translation") + example.translation_language
-                           : example.translation) |
-          color(secondary));
+        Elements lines{sentence,
+          paragraph(example.translation.empty()
+              ? ui_text("no_example_translation") + example.translation_language
+              : example.translation) |
+            color(secondary)};
         Elements source{text(ui_text("example_source") + std::to_string(example.sentence_id)) |
           hyperlink(example.source_url) | color(muted)};
         if (example.translation_id)
@@ -285,7 +285,10 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
             hyperlink(example.translation_url) | color(muted));
         if (!example.sense_link)
           source.push_back(text(ui_text("example_word_level")) | color(muted));
-        body.push_back(hbox(std::move(source)));
+        lines.push_back(hbox(std::move(source)));
+        // Keep wrapped sentences, translations and provenance in one column beside the marker.
+        body.push_back(hbox({text(selection(selected)) | color(accent),
+          vbox(std::move(lines)) | flex}));
       }
       if (!examples.empty()) {
         body.push_back(text(""));

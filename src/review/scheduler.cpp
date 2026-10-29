@@ -166,14 +166,47 @@ MatchResult match_meaning(const Vocabulary &word, std::string_view answer) {
   return {Match::incorrect, {}};
 }
 
+std::pair<std::vector<AnswerSpan>, std::vector<AnswerSpan>>
+answer_difference(std::string_view submitted, std::string_view expected) {
+  auto glyphs = [](std::string_view text) {
+    std::vector<std::string_view> result;
+    for (std::size_t i = 0; i < text.size();) {
+      const auto start = i++;
+      while (i < text.size() && (static_cast<unsigned char>(text[i]) & 0xC0) == 0x80)
+        ++i;
+      result.push_back(text.substr(start, i - start));
+    }
+    return result;
+  };
+  const auto a = glyphs(submitted), b = glyphs(expected);
+  std::size_t prefix = 0, suffix = 0;
+  while (prefix < a.size() && prefix < b.size() && a[prefix] == b[prefix])
+    ++prefix;
+  while (suffix < a.size() - prefix && suffix < b.size() - prefix &&
+    a[a.size() - suffix - 1] == b[b.size() - suffix - 1])
+    ++suffix;
+  auto spans = [&](const auto &units) {
+    std::vector<AnswerSpan> result;
+    for (std::size_t i = 0; i < units.size(); ++i) {
+      const bool changed = i >= prefix && i < units.size() - suffix;
+      if (result.empty() || result.back().changed != changed)
+        result.push_back({std::string(units[i]), changed});
+      else
+        result.back().text += units[i];
+    }
+    return result;
+  };
+  return {spans(a), spans(b)};
+}
+
 std::expected<Plan, Error>
 plan_review(const Scheduler &scheduler, const Card &card, std::chrono::sys_seconds now) {
   auto invalid = [] {
     return std::unexpected(Error{ErrorKind::invalid_input,
       "Invalid or future-due review snapshot."});
   };
-  if (card.word.id <= 0 || card.revision < 0 ||
-    card.revision == std::numeric_limits<std::int64_t>::max() ||
+  if (static_cast<int>(card.kind) < 0 || static_cast<int>(card.kind) > 2 || card.word.id <= 0 ||
+    card.revision < 0 || card.revision == std::numeric_limits<std::int64_t>::max() ||
     now.time_since_epoch().count() < 0 || card.due.time_since_epoch().count() < 0 ||
     now < card.due || card.memory.has_value() != card.last_review.has_value())
     return invalid();
@@ -204,6 +237,7 @@ plan_review(const Scheduler &scheduler, const Card &card, std::chrono::sys_secon
     if (!next)
       return std::unexpected(next.error());
     Plan result{card.word.id, card.revision, now, elapsed, policy.retention, {}};
+    result.kind = card.kind;
     const std::array states{next->again, next->hard, next->good, next->easy};
     for (std::size_t i = 0; i < states.size(); ++i) {
       const auto days = static_cast<std::int64_t>(

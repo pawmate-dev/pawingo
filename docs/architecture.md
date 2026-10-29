@@ -48,12 +48,13 @@ remain in the global module and import project modules. These are entry boundari
 header-based API. `just check-modules` enforces project imports and module declarations and runs
 before `just test`.
 
-The ABI tag includes `modules-1`. Existing header-based plugin binaries must be rebuilt: named-
-module ownership changes C++ linkage and RTTI. The native `pawingo_plugin_v1` descriptor entry shape
-is unchanged, but its ABI tag rejects old binaries. Native entry adapters explicitly export their C
-symbol (`dllexport` on Windows and default symbol visibility on ELF/Mach-O); C++ module `export`
-alone does not export a symbol from a shared library. Compiler, standard library, flags, and FTXUI
-compatibility still apply; BMIs are compiler-specific build artifacts.
+The ABI tag includes `modules-2`. Older plugin binaries must be rebuilt after the typed-card
+contract change. Named modules affect C++ linkage and RTTI; question types also extend the shared
+card contract. The native `pawingo_plugin_v1` descriptor entry shape is unchanged, but its ABI tag
+rejects old binaries. Native entry adapters explicitly export their C symbol (`dllexport` on Windows
+and default symbol visibility on ELF/Mach-O); C++ module `export` alone does not export a symbol
+from a shared library. Compiler, standard library, flags, and FTXUI compatibility still apply; BMIs
+are compiler-specific build artifacts.
 
 ## Text input and IME positioning
 
@@ -201,15 +202,28 @@ Elapsed days are complete 24-hour periods since the prior review, not local cale
 differences. Planning rejects future-due snapshots, backward clocks, inconsistent state and
 timestamp overflow.
 
-`sql/review.sql` adds one meaning card per saved vocabulary ID and seeds existing favorites without
-inventing ratings. `Store::save` enrolls new favorites in the same transaction and leaves duplicate
-cards' schedules intact. `review_queue` returns due scheduled cards before new cards in bounded
-batches. `commit_review` checks the snapshot revision and transactionally writes the new memory/due
-time, a detailed `fsrs_reviews` event and one legacy-compatible `reviews` activity row. Failed
-writes roll back all three; repeated or stale submissions cannot grade the same revision twice.
-History keeps the entered answer, matching outcome, independent recall rating, elapsed days,
-retention and updated memory. Event IDs remain 64-bit even though sqlite_orm's object-insert
-convenience API returns `int`.
+`sql/review.sql` seeds a meaning card per saved vocabulary ID without inventing ratings.
+`Store::save` enrolls new favorites in the same transaction and leaves duplicate cards' schedules
+intact. `review_queue` returns due scheduled cards before new cards in bounded batches.
+`commit_review` checks the snapshot revision and transactionally writes the new memory/due time, a
+detailed `fsrs_reviews` event and one legacy-compatible `reviews` activity row. Failed writes roll
+back all three; repeated or stale submissions cannot grade the same revision twice. History keeps
+the entered answer, matching outcome, independent recall rating, elapsed days, retention and updated
+memory. Event IDs remain 64-bit even though sqlite_orm's object-insert convenience API returns
+`int`.
+
+`sql/review_variants.sql` atomically upgrades card identity to `(vocabulary_id, kind)` and adds
+question type to FSRS events, preserving original meaning states and history. Enrollment adds
+plugin-selected types without modifying existing schedules; each type has an independent revision
+and memory. The loader probes the legacy column layout through an embedded SQL resource before
+applying the upgrade. Ordinary writes remain sqlite_orm operations.
+
+`pawingo.japanese.review` supplies Japanese eligibility, prompts, kana/spelling matching and a
+shared VOICEVOX speech callback. It creates meaning, reading and listening cards where applicable.
+The shared UI hides answers, colors Unicode difference spans after assessment and requires
+successful playback before checking an audio question. Its joined background worker uses a
+generation guard so cancelled speech from a previous card cannot unlock a new question. Worker
+callbacks never access Store. Reading prompts do not expose speech until feedback.
 
 `pawingo.review_ui` composes these contracts into an offline typed-answer session. Enter previews
 the solution and proposed intervals; a separate confirmation commits the rating. Escape from
@@ -228,8 +242,8 @@ that plugin's feature list; feedback consumes Escape to restore editing first. P
 its entry without deleting its favorites or schedules. The calendar reads committed activity only.
 Legacy vocabulary and activity rows remain intact; legacy reviews without four-way ratings are not
 replayed as FSRS history. Queue size is a batch size rather than a daily study cap. Automatic
-parameter optimization, alternative question types and multi-step learning ladders are not yet
-implemented. See [review usage](review.md).
+parameter optimization, sentence cards and multi-step learning ladders are not yet implemented. See
+[review usage](review.md).
 
 ## Configuration ownership and hardcoding audit
 

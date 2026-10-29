@@ -38,13 +38,28 @@ struct NextStates {
   ReviewState again, hard, good, easy;
 };
 
-/// Snapshot of one saved meaning card. New cards have neither memory nor a previous review.
+/// Stable persisted question identifiers; plugins decide which types apply to their vocabulary.
+enum class QuestionType : int { meaning = 0, reading = 1, listening = 2 };
+
+/// One UTF-8 answer span for difference feedback; changed spans need learner attention.
+struct AnswerSpan {
+  std::string text;
+  bool changed;
+};
+
+/// Compares Unicode scalar sequences with bounded common-prefix/suffix highlighting.
+/// Preserves original text, including missing/extra characters, without accepting fuzzy matches.
+std::pair<std::vector<AnswerSpan>, std::vector<AnswerSpan>>
+answer_difference(std::string_view submitted, std::string_view expected);
+
+/// Snapshot of one saved learning card. New cards have neither memory nor a previous review.
 struct Card {
   Vocabulary word;
   std::optional<MemoryState> memory;
   std::optional<std::chrono::sys_seconds> last_review;
   std::chrono::sys_seconds due{};
   std::int64_t revision = 0;
+  QuestionType kind = QuestionType::meaning;
 };
 
 /// Host scheduling policy applied after FSRS; memory updates still come from the selected rating.
@@ -61,6 +76,7 @@ struct Plan {
   std::chrono::days elapsed;
   float desired_retention;
   std::array<Outcome, 4> outcomes; ///< Again, Hard, Good and Easy in stable rating order.
+  QuestionType kind = QuestionType::meaning;
 };
 
 /// One explicit grading action; answer matching and recall rating remain independent.
@@ -81,6 +97,7 @@ struct Record {
   std::chrono::days elapsed;
   MemoryState memory;
   float desired_retention;
+  QuestionType kind = QuestionType::meaning;
 };
 
 /// Scheduling input. A new card has no memory and zero elapsed days.
@@ -140,7 +157,7 @@ private:
   std::unique_ptr<Impl> impl_;
 };
 
-/// Plans a due meaning card at a Unix-second completion time without mutating it.
+/// Plans a due learning card at a Unix-second completion time without mutating it.
 /// Whole elapsed 24-hour days are passed to FSRS; intervals for Hard/Good/Easy are rounded and
 /// bounded by embedded policy, while Again uses the configured short relearning delay. Rejects
 /// future-due cards, backward clocks, inconsistent snapshots and timestamp overflow. The caller

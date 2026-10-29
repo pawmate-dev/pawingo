@@ -24,6 +24,7 @@ import pawingo.tasks;
 import pawingo.ui;
 import pawingo.review;
 import pawingo.review_ui;
+import pawingo.japanese.review;
 import pawingo.japanese.search;
 import pawingo.japanese.settings;
 import pawingo.japanese.voicevox;
@@ -315,12 +316,12 @@ ftxui::Component panel(pawingo::Host &host,
 class Japanese : public pawingo::LanguagePlugin, public pawingo::PanelHelpProvider {
 public:
   std::string panel_help(const std::string &id) const override {
-    if (id == feature_labels[3])
+    if (id == feature_labels[1])
       return review_help_ ? review_help_() : pawingo::config::ui_text("esc_back");
     std::string shortcuts;
-    if (id == feature_labels[2] || (id == feature_labels[0] && kana_page_ && *kana_page_ == 1))
+    if (id == feature_labels[3] || (id == feature_labels[2] && kana_page_ && *kana_page_ == 1))
       shortcuts = ui_text("tab_field_ctrl_p_preview");
-    else if (id == feature_labels[1] && search_help_)
+    else if (id == feature_labels[0] && search_help_)
       shortcuts = search_help_();
     else
       shortcuts = ui_text("select_enter_speak_d_voice");
@@ -346,7 +347,7 @@ public:
   }
 
   ftxui::Component create_panel(const std::string &id, pawingo::Host &host) override {
-    if (id == feature_labels[3]) {
+    if (id == feature_labels[1]) {
       auto *reviews = dynamic_cast<pawingo::ui::ReviewProvider *>(&host);
       if (!reviews) {
         review_help_ = {};
@@ -356,20 +357,23 @@ public:
             ftxui::size(ftxui::WIDTH, ftxui::EQUAL, pawingo::ui::content_width);
         });
       }
-      auto review = reviews->create_review_panel(settings().text("plugin.language"),
+      auto review = reviews->create_review_panel(
+        settings().text("plugin.language"),
         [this](const pawingo::Vocabulary &word, const std::string &answer) {
           return match(word, answer);
-        });
+        },
+        pawingo::japanese::review_content(voicevox_)
+      );
       review_help_ = std::move(review.help);
       return review.component;
     }
-    if (id == feature_labels[2])
+    if (id == feature_labels[3])
       return pawingo::japanese::voicevox_panel(voicevox_, host);
-    if (id == feature_labels[0]) {
+    if (id == feature_labels[2]) {
       kana_page_ = std::make_shared<int>(0);
       return panel(host, voicevox_, kana_page_);
     }
-    if (id == feature_labels[1]) {
+    if (id == feature_labels[0]) {
       auto search = pawingo::japanese::search_panel(
         dictionary_,
         host,

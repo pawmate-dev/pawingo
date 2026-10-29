@@ -50,6 +50,10 @@ public:
     Match result,
     std::int64_t reviewed_at,
     std::int64_t next_review_at);
+  /// Enrolls additional question types for an existing word without resetting any memory.
+  /// Types are stable persisted IDs; invalid IDs/types return typed errors. No activity is written.
+  std::expected<void, ReviewStoreError> enroll_review_cards(std::int64_t vocabulary_id,
+    std::span<const review::QuestionType> types);
   /// Returns due snapshots, scheduled cards before new cards, then ordered by due time and ID.
   /// Limit must be 1..1000 and now must be nonnegative. No schedules or logs are changed.
   std::expected<std::vector<review::Card>, ReviewStoreError>

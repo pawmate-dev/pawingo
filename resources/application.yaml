@@ -32,6 +32,7 @@ review:
   maximum_interval_days: 36500
   queue_batch_size: 50
   body_height: 8
+  subtitle_height: 2
   meaning_height: 3
   source_height: 1
   rating_width: 12
@@ -58,7 +59,7 @@ messages:
   no_plugins_available_for_download_yet: "No plugins available for download yet."
   esc_back: "esc  back"
   review: "Review"
-  review_answer: "meaning"
+  review_answer: "answer"
   review_correct: "correct"
   review_acceptable: "accepted"
   review_blank_answer: "—"
@@ -69,3 +70,10 @@ messages:
   review_question_help: "enter  check    esc  back"
   review_feedback_help: "←→ rating  ↑↓ meaning  enter confirm  1–4 rate  esc edit"
   review_empty_help: "enter  refresh    esc  back"
+  review_audio_prompt: "ctrl+p  listen / replay"
+  review_listen_first: "Play the audio before checking your answer."
+  review_playing: "Playing…"
+  review_played: "Played. ctrl+p to replay."
+  review_audio_failed: "Audio failed. Check voice settings and retry with ctrl+p."
+  review_listening_help: "^p listen  enter check  esc back"
+  review_speak_hint: "^p speak  "

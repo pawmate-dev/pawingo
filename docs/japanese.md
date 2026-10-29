@@ -24,8 +24,15 @@ Mei voice credits are in [ATTRIBUTION.txt](../plugins/japanese/license/ATTRIBUTI
 
 Choose `復習` from the Japanese feature list to review saved Japanese words. The queue is scoped to
 `ja`, including words saved with definitions in other target languages. It reuses shared FSRS
-scheduling and persistence and supplies the Japanese meaning matcher. Escape edits feedback first,
-then returns to the Japanese feature list. See [review usage](review.md) for input and rating keys.
+scheduling and persistence and supplies Japanese meaning, reading and listening questions. Kanji
+words with a saved kana reading get three independent cards; kana-only words keep meaning cards.
+Reading questions hide the pronunciation; listening questions hide spelling and reading and use the
+meaning to distinguish homophones. Ctrl+P plays/replays listening audio through the configured
+VOICEVOX voice. Successful playback is required before checking; missing voice resources leave the
+card ungraded. Reading answers accept equivalent kana/width forms while retaining long-vowel, sokuon
+and small-kana distinctions. Listening answers require the saved written form. Escape edits feedback
+first, then returns to the Japanese feature list. See [review usage](review.md) for input and rating
+keys.
 
 ## Vocabulary search
 

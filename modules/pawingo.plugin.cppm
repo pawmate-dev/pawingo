@@ -66,7 +66,7 @@ using PluginEntry = const PluginDescriptor *(*)();
 #else
 #define PAWINGO_COMPILER_TAG "unknown"
 #endif
-inline constexpr const char *plugin_abi_tag = PAWINGO_COMPILER_TAG ";ftxui-6.1.9;api-1;modules-1";
+inline constexpr const char *plugin_abi_tag = PAWINGO_COMPILER_TAG ";ftxui-6.1.9;api-1;modules-2";
 } // namespace pawingo
 
 /// Export exactly this C symbol from a plugin:

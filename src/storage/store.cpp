@@ -40,6 +40,7 @@ struct CardRow {
   std::optional<double> stability, difficulty;
   std::optional<std::int64_t> last_review;
   std::int64_t due, revision;
+  int kind = 0;
 };
 
 struct FsrsRow {
@@ -48,6 +49,7 @@ struct FsrsRow {
   std::string answer;
   std::int64_t elapsed_days;
   double stability, difficulty, retention;
+  int kind = 0;
 };
 
 struct ReviewFailure {
@@ -102,15 +104,18 @@ auto make_database(const std::string &path) {
       make_column("reviewed_at", &ReviewRow::reviewed_at),
       make_column("next_review_at", &ReviewRow::next_review_at)),
     make_table("review_cards",
-      make_column("vocabulary_id", &CardRow::vocabulary_id, primary_key()),
+      make_column("vocabulary_id", &CardRow::vocabulary_id),
+      make_column("kind", &CardRow::kind),
       make_column("stability", &CardRow::stability),
       make_column("difficulty", &CardRow::difficulty),
       make_column("last_review_at", &CardRow::last_review),
       make_column("due_at", &CardRow::due),
-      make_column("revision", &CardRow::revision)),
+      make_column("revision", &CardRow::revision),
+      primary_key(&CardRow::vocabulary_id, &CardRow::kind)),
     make_table("fsrs_reviews",
       make_column("review_id", &FsrsRow::review_id, primary_key()),
       make_column("vocabulary_id", &FsrsRow::vocabulary_id),
+      make_column("kind", &FsrsRow::kind),
       make_column("revision", &FsrsRow::revision),
       make_column("rating", &FsrsRow::rating),
       make_column("answer", &FsrsRow::answer),
@@ -143,6 +148,25 @@ struct Store::Impl {
           sqlite3_free(error);
           throw std::runtime_error(message);
         }
+      }
+      // Probe the schema rather than infer version from rows, including on empty databases.
+      bool has_kind = false;
+      auto inspect = [](void *found, int columns, char **values, char **) -> int {
+        if (columns > 1 && values[1] && std::string_view(values[1]) == "kind")
+          *static_cast<bool *>(found) = true;
+        return 0;
+      };
+      if (sqlite3_exec(connection, sql::review_probe, inspect, &has_kind, &error) != SQLITE_OK) {
+        std::string message = error ? error : sqlite3_errmsg(connection);
+        sqlite3_free(error);
+        throw std::runtime_error(message);
+      }
+      if (!has_kind &&
+        sqlite3_exec(connection, sql::review_variants, nullptr, nullptr, &error) != SQLITE_OK) {
+        std::string message = error ? error : sqlite3_errmsg(connection);
+        sqlite3_free(error);
+        sqlite3_exec(connection, "ROLLBACK", nullptr, nullptr, nullptr);
+        throw std::runtime_error(message);
       }
     };
     db.on_open = initialize;
@@ -192,8 +216,8 @@ void Store::save(const Vocabulary &v) {
     execute_insert(impl_->db,
       insert(or_ignore(),
         into<CardRow>(),
-        columns(&CardRow::vocabulary_id, &CardRow::due, &CardRow::revision),
-        values(std::make_tuple(ids.front(), 0, 0))));
+        columns(&CardRow::vocabulary_id, &CardRow::kind, &CardRow::due, &CardRow::revision),
+        values(std::make_tuple(ids.front(), 0, 0, 0))));
     return true;
   });
 }
@@ -283,6 +307,27 @@ std::vector<std::int64_t> Store::review_timestamps(std::int64_t from, std::int64
     order_by(&ReviewRow::reviewed_at));
 }
 
+std::expected<void, ReviewStoreError> Store::enroll_review_cards(std::int64_t id,
+  std::span<const review::QuestionType> types) {
+  return review_operation([&] {
+    if (id <= 0 || !impl_->db.get_pointer<Vocabulary>(id))
+      reject_review(ReviewStoreErrorKind::missing, "Vocabulary no longer exists.");
+    impl_->db.transaction([&] {
+      for (auto type : types) {
+        const int kind = static_cast<int>(type);
+        if (kind < 0 || kind > 2)
+          reject_review(ReviewStoreErrorKind::invalid_input, "Unknown review question type.");
+        execute_insert(impl_->db,
+          insert(or_ignore(),
+            into<CardRow>(),
+            columns(&CardRow::vocabulary_id, &CardRow::kind, &CardRow::due, &CardRow::revision),
+            values(std::make_tuple(id, kind, 0, 0))));
+      }
+      return true;
+    });
+  });
+}
+
 std::expected<std::vector<review::Card>, ReviewStoreError>
 Store::review_queue(const ReviewQueueRequest &request) {
   return review_operation([&] {
@@ -293,7 +338,8 @@ Store::review_queue(const ReviewQueueRequest &request) {
       return impl_->db.get_all<CardRow>(where(condition),
         multi_order_by(order_by(is_null(&CardRow::last_review)),
           order_by(&CardRow::due),
-          order_by(&CardRow::vocabulary_id)),
+          order_by(&CardRow::vocabulary_id),
+          order_by(&CardRow::kind)),
         limit(static_cast<int>(request.limit)));
     };
     auto rows = request.language.empty()
@@ -315,6 +361,7 @@ Store::review_queue(const ReviewQueueRequest &request) {
       }
       card.due = std::chrono::sys_seconds(std::chrono::seconds(row.due));
       card.revision = row.revision;
+      card.kind = static_cast<review::QuestionType>(row.kind);
       result.push_back(std::move(card));
     }
     return result;
@@ -328,6 +375,7 @@ std::expected<void, ReviewStoreError> Store::commit_review(const review::Commit 
     const auto match = static_cast<unsigned>(request.result);
     const auto now = plan.reviewed_at.time_since_epoch().count();
     if (rating < 1 || rating > 4 || match > static_cast<unsigned>(Match::incorrect) ||
+      static_cast<int>(plan.kind) < 0 || static_cast<int>(plan.kind) > 2 ||
       plan.vocabulary_id <= 0 || plan.revision < 0 ||
       plan.revision == std::numeric_limits<std::int64_t>::max() || now < 0 ||
       plan.elapsed.count() < 0 ||
@@ -344,7 +392,7 @@ std::expected<void, ReviewStoreError> Store::commit_review(const review::Commit 
       outcome.due.time_since_epoch().count() != now + seconds)
       reject_review(ReviewStoreErrorKind::invalid_input, "Invalid FSRS outcome or due time.");
     impl_->db.transaction([&] {
-      auto row = impl_->db.get_pointer<CardRow>(plan.vocabulary_id);
+      auto row = impl_->db.get_pointer<CardRow>(plan.vocabulary_id, static_cast<int>(plan.kind));
       if (!row)
         reject_review(ReviewStoreErrorKind::missing, "Review card no longer exists.");
       if (row->revision != plan.revision)
@@ -367,6 +415,7 @@ std::expected<void, ReviewStoreError> Store::commit_review(const review::Commit 
         insert(into<FsrsRow>(),
           columns(&FsrsRow::review_id,
             &FsrsRow::vocabulary_id,
+            &FsrsRow::kind,
             &FsrsRow::revision,
             &FsrsRow::rating,
             &FsrsRow::answer,
@@ -376,6 +425,7 @@ std::expected<void, ReviewStoreError> Store::commit_review(const review::Commit 
             &FsrsRow::retention),
           values(std::make_tuple(id,
             plan.vocabulary_id,
+            static_cast<int>(plan.kind),
             plan.revision + 1,
             int(rating),
             request.answer,
@@ -414,7 +464,8 @@ Store::review_history(std::int64_t vocabulary_id) {
         std::chrono::sys_seconds(std::chrono::seconds(event.next_review_at)),
         std::chrono::days(row.elapsed_days),
         {review::Days(static_cast<float>(row.stability)), static_cast<float>(row.difficulty)},
-        static_cast<float>(row.retention)});
+        static_cast<float>(row.retention),
+        static_cast<review::QuestionType>(row.kind)});
     }
     return result;
   });

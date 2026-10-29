@@ -32,8 +32,12 @@ public:
   }
 
   pawingo::ui::ReviewPanel create_review_panel(const std::string &language,
-    pawingo::ui::AnswerMatcher matcher) override {
-    return pawingo::ui::review_panel(store_, language, std::move(matcher));
+    pawingo::ui::AnswerMatcher matcher,
+    pawingo::ui::ReviewContent content = {}) override {
+    content.redraw = [this] {
+      request_redraw();
+    };
+    return pawingo::ui::review_panel(store_, language, std::move(matcher), {}, std::move(content));
   }
 
   void request_redraw() override {

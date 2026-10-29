@@ -78,10 +78,38 @@ int main(int argc, char **argv) {
       },
       examples
     );
-    auto render = [&] {
-      auto screen = Screen::Create(Dimension::Fixed(80), Dimension::Fixed(24));
+    auto snapshot = [&](int width = 80, int height = 24) {
+      auto screen = Screen::Create(Dimension::Fixed(width), Dimension::Fixed(height));
       Render(screen, panel.component->Render());
-      return screen.ToString();
+      return screen;
+    };
+    auto render = [&] {
+      return snapshot().ToString();
+    };
+    auto aligned = [&] {
+      for (auto [width, height] : {std::pair{80, 24}, std::pair{120, 40}}) {
+        auto screen = snapshot(width, height);
+        int heading_x = -1, heading_y = -1, reading_x = -1, sentence_x = -1, sentence_y = -1;
+        for (int y = 0; y < screen.dimy(); ++y)
+          for (int x = 0; x < screen.dimx(); ++x) {
+            const auto &ch = screen.PixelAt(x, y).character;
+            if (ch == "猫" && heading_y < 0) {
+              heading_x = x;
+              heading_y = y;
+            } else if (ch == "ね" && reading_x < 0)
+              reading_x = x;
+            else if (ch == "猫" && sentence_y < 0) {
+              sentence_x = x;
+              sentence_y = y;
+            }
+          }
+        require(heading_x >= 0 && reading_x >= 0 &&
+            std::abs((2 * heading_x + 2) - (2 * reading_x + 4)) <= 1,
+          "selection gutter does not move the centered spelling relative to its reading");
+        require(sentence_y >= 0 && screen.PixelAt(sentence_x, sentence_y + 1).character == "T" &&
+            screen.PixelAt(sentence_x, sentence_y + 2).character == "T",
+          "Japanese sentence, translation and source share the same text column");
+      }
     };
     int checkpoint = 0;
     auto await = [&](auto predicate) {
@@ -123,6 +151,7 @@ int main(int argc, char **argv) {
     await([&] {
       return render().find("There is a cat.") != std::string::npos;
     });
+    aligned();
     speak(1);
     {
       std::lock_guard lock(mutex);
@@ -130,6 +159,7 @@ int main(int argc, char **argv) {
         "word pronunciation preserves dictionary reading");
     }
     panel.component->OnEvent(Event::Tab);
+    aligned();
     release = false;
     speak(2);
     panel.component->OnEvent(Event::Tab);

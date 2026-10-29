@@ -90,4 +90,8 @@ messages:
   extract_prefix: "Extracting "
   extract_suffix: "…"
 
-review_unavailable: "Review is unavailable in this host."
+  review_unavailable: "Review is unavailable in this host."
+  review_reading: "よみかた"
+  review_listen: "聴いて書く"
+  review_spelling: "漢字"
+  review_meaning: "meaning"
