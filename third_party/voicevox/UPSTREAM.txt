@@ -1,0 +1,5 @@
+VOICEVOX CORE C API header, version 0.16.3
+Source: https://github.com/VOICEVOX/voicevox_core/blob/0.16.3/crates/voicevox_core_c_api/include/voicevox_core.h
+License: MIT (see LICENSE). Header retained unmodified.
+Only the interface header is vendored. Runtime binaries, dictionaries, and voice models are
+user-managed resources with their own licenses; they are not included in Pawingo.

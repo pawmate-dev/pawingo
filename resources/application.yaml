@@ -1,0 +1,110 @@
+schema: 1
+storage:
+  directory: pawingo
+  database: pawingo.sqlite3
+  plugins: plugins
+  plugin_override_env: PAWINGO_PLUGIN_DIR
+packages:
+  catalog_url: https://github.com/pawmate-dev/pawingo/releases/latest/download/plugins-v1.yaml
+  service: github.plugins
+  cache: catalog-v1.yaml
+  inventory: installed.yaml
+  manifest: plugin.yaml
+  catalog_bytes: 1048576
+  download_bytes: 268435456
+  expanded_bytes: 536870912
+  max_entries: 10000
+  timeout_seconds: 600
+  list_rows: 5
+  description_height: 3
+  status_height: 3
+diagnostics:
+  file: logs/pawingo.log
+theme:
+  content_width: 72
+  wordmark: P a w i n g o
+  selection: ["●  ", "   "]
+  field_selection: ["● ", "  "]
+  footer_separator: "   ·   "
+  colors:
+    ink: [201, 194, 171]
+    secondary: [145, 139, 120]
+    muted: [112, 107, 93]
+    faint: [64, 67, 55]
+    olive: [139, 150, 112]
+    accent: [211, 101, 69]
+activity:
+  weeks: 14
+  thresholds: [1, 5, 10, 20]
+  level_colors: [faint, muted, secondary, olive, ink]
+  marks: ['·', '◦', '○', '●', '●']
+review:
+  desired_retention: 0.9
+  again_seconds: 600
+  minimum_interval_days: 1
+  maximum_interval_days: 36500
+  queue_batch_size: 50
+  body_height: 8
+  subtitle_height: 2
+  meaning_height: 3
+  source_height: 1
+  rating_width: 12
+  scroll_step_percent: 10
+  status_height: 2
+  rating_labels: [again, hard, good, easy]
+services:
+  default_policy: ask
+network:
+  download_bytes: 67108864
+  timeout_seconds: 180
+  connect_timeout_seconds: 15
+  max_redirects: 5
+languages:
+  - [Japanese, 日本語, '🇯🇵']
+  - [German, Deutsch, '🇩🇪']
+  - [English, English, '🇬🇧']
+messages:
+  no_plugins_installed_yet: "No plugins installed yet."
+  get_plugins: "Get plugins"
+  select_enter_open_q_quit: "↑ ↓  select    enter  open    q  quit"
+  no_learning_features_available: "No learning features available."
+  select_enter_open_esc_back: "↑ ↓  select    enter  open    esc  back"
+  no_plugins_available_for_download_yet: "No plugins available for download yet."
+  esc_back: "esc  back"
+  review: "Review"
+  review_answer: "answer"
+  review_correct: "correct"
+  review_acceptable: "accepted"
+  review_blank_answer: "—"
+  review_operation_failed: "Review operation failed."
+  review_check_answer: "check answer"
+  review_no_due: "No cards due."
+  review_storage_changed: "This card changed elsewhere; the queue has been refreshed."
+  review_question_help: "enter  check    esc  back"
+  review_feedback_help: "←→ rating  ↑↓ meaning  enter confirm  1–4 rate  esc edit"
+  review_empty_help: "enter  refresh    esc  back"
+  review_audio_prompt: "ctrl+p  listen / replay"
+  review_listen_first: "Play the audio before checking your answer."
+  review_playing: "Playing…"
+  review_played: "Played. ctrl+p to replay."
+  review_audio_failed: "Audio failed. Check voice settings and retry with ctrl+p."
+  review_listening_help: "^p listen  enter check  esc back"
+  review_speak_hint: "^p speak  "
+  packages_help: "↑↓ select  enter install  r refresh  esc back"
+  packages_confirm_help: "enter once  a always allow  esc cancel"
+  packages_busy_help: "esc cancel"
+  packages_available: "available"
+  packages_installed: "installed"
+  packages_update: "update available"
+  packages_incompatible: "incompatible build"
+  packages_unpublished: "not published yet"
+  packages_confirm_refresh: "Refresh the plugin catalog from GitHub?"
+  packages_confirm_install: "Download and install "
+  packages_pending: "Installed. Restart Pawingo to load this version."
+  packages_refresh_done: "Catalog refreshed."
+  packages_working: "Working…"
+  packages_cancelled: "Cancelled."
+  packages_cancelling: "Cancelling…"
+  packages_offline: "Plugin downloads are disabled by the service policy."
+  packages_empty: "No plugins in this catalog."
+  packages_operation_failed: "Plugin operation failed."

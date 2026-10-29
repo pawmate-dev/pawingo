@@ -1,10 +1,10 @@
-#include "pawingo/core.hpp"
-#include <iostream>
 #include <sqlite3.h>
-#include <stdexcept>
-#include <string>
+#include <stdlib.h>
 #include <unistd.h>
 
+import std;
+import pawingo.core;
+import pawingo.plugin;
 import pawingo.review;
 
 class Provider : public pawingo::DictionaryProvider {
@@ -12,19 +12,24 @@ public:
   bool remote;
   int calls = 0;
   bool has_result;
+
   Provider(bool remote, bool has_result)
     : remote(remote),
       has_result(has_result) {
   }
+
   std::string id() const override {
     return remote ? "remote" : "local";
   }
+
   std::string name() const override {
     return id();
   }
+
   bool online() const override {
     return remote;
   }
+
   std::vector<pawingo::Vocabulary> search(const std::string &, const std::string &) override {
     ++calls;
     return has_result
@@ -32,17 +37,17 @@ public:
       : std::vector<pawingo::Vocabulary>{};
   }
 };
+
 void require(bool condition, const char *message) {
   if (!condition)
     throw std::runtime_error(message);
 }
+
 int main(int argc, char **argv) {
   try {
     require(argc == 2, "plugin path required");
     require(pawingo::review::exact("  hello  world ", "hello world"), "answer whitespace");
     require(!pawingo::review::exact("Hello", "hello"), "answer case preserved");
-    require(pawingo::review::next_review(0, false, 0) == 600, "failed review interval");
-    require(pawingo::review::next_review(0, true, 0) == 86400, "successful review interval");
     pawingo::Store store(":memory:");
     require(store.policy("service") == pawingo::OnlinePolicy::ask, "default policy");
     store.set_policy("service", pawingo::OnlinePolicy::allow);
@@ -54,6 +59,9 @@ int main(int argc, char **argv) {
     require(words.size() == 1 && words[0].source == "dictionary" && words[0].id > 0,
       "saved vocabulary");
     store.record_review(words[0].id, pawingo::Match::correct, 100, 200);
+    require(store.review_timestamps(100, 101).size() == 1 &&
+        store.review_timestamps(101, 200).empty(),
+      "review time range");
     bool foreign_key_rejected = false;
     try {
       store.record_review(-1, pawingo::Match::correct, 100, 200);

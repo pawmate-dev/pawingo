@@ -4,3 +4,7 @@
 build/
 compile_commands.json
 result
+native/fsrs/target/
+
+__pycache__/
+.ruff_cache/

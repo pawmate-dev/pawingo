@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE JMdict [<!ENTITY n "noun">]>
+<!-- Synthetic fixture; not an extract of the JMdict database. -->
+<JMdict>
+  <entry>
+    <ent_seq>1002</ent_seq><k_ele><keb>猫舌</keb></k_ele><r_ele><reb>ねこじた</reb></r_ele>
+    <sense><pos>&n;</pos><gloss>sensitivity to hot food</gloss></sense>
+  </entry>
+  <entry>
+    <ent_seq>1001</ent_seq><k_ele><keb>猫</keb></k_ele><r_ele><reb>ねこ</reb></r_ele>
+    <sense><gloss>cat</gloss><gloss>feline</gloss><gloss xml:lang="ger">Katze</gloss><gloss xml:lang="fre">chat</gloss></sense>
+  </entry>
+  <entry>
+    <ent_seq>1003</ent_seq><k_ele><keb>生</keb></k_ele><k_ele><keb>性</keb></k_ele>
+    <r_ele><reb>せい</reb><re_restr>性</re_restr></r_ele><r_ele><reb>しょう</reb><re_restr>生</re_restr></r_ele>
+    <sense><stagk>生</stagk><stagr>しょう</stagr><gloss>life</gloss></sense>
+    <sense><stagk>性</stagk><stagr>せい</stagr><gloss>nature</gloss></sense>
+  </entry>
+  <entry>
+    <ent_seq>1004</ent_seq><r_ele><reb>おはよう</reb></r_ele><sense><gloss>good morning</gloss></sense>
+  </entry>
+  <entry>
+    <ent_seq>1005</ent_seq><k_ele><keb>二十歳</keb></k_ele><r_ele><reb>はたち</reb><re_nokanji/></r_ele>
+    <sense><gloss>twenty years old</gloss></sense>
+  </entry>
+</JMdict>

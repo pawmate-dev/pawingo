@@ -1,0 +1,11 @@
+# Offline metadata. Release packaging replaces this with the checksum-pinned generated catalog.
+schema: 1
+plugins:
+    - id: japanese
+      name: 日本語
+      description: Japanese vocabulary, kana, typed review and optional local speech.
+      language: ja
+      version: 0.1.0
+      host_version: 0.2.0
+      plugin_api: 1
+      artifacts: {}

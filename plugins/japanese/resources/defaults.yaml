@@ -1,0 +1,88 @@
+schema: 1
+plugin:
+  id: japanese
+  name: Japanese
+  language: ja
+  panels: [語彙検索, 復習, 五十音図, 音声設定]
+dictionary:
+  path: dictionaries/japanese/JMdict
+  override_env: PAWINGO_JMDICT
+  url: https://www.edrdg.org/pub/Nihongo/JMdict.gz
+  source_prefix: JMdict · EDRDG ·
+  download_bytes: 67108864
+  timeout_seconds: 180
+  expanded_bytes: 536870912
+  max_records: 3000000
+  max_field_bytes: 1048576
+  target: en
+  result_limit: 40
+  page_size: 5
+  gloss_languages:
+    en: eng
+    de: ger
+    deu: ger
+    fr: fre
+    fra: fre
+    nl: dut
+    nld: dut
+    es: spa
+    ru: rus
+    hu: hun
+    sl: slv
+    sv: swe
+    ja: jpn
+    zh: chi
+    zho: chi
+examples:
+  path: examples/japanese/examples.sqlite3
+  url: https://downloads.tatoeba.org/exports/wwwjdic.csv
+  sentence_url: https://tatoeba.org/en/sentences/show/
+  attribution: Tatoeba contributors · WWWJDIC word indices
+  license: CC BY 2.0 FR
+  download_bytes: 134217728
+  timeout_seconds: 180
+  expanded_bytes: 268435456
+  max_line_bytes: 1048576
+  max_records: 1000000
+  max_links: 5000000
+  result_limit: 5
+  candidate_limit: 10000
+tts:
+  preferences: voicevox.yaml
+  legacy_preferences: voicevox.json
+  managed_directory: tts/voicevox
+  acceleration: cpu
+  cpu_threads: 2
+  default_style: 0
+  interrogative_upspeak: true
+  preview: こんにちは。日本語を一緒に勉強しましょう。
+  playback_poll_ms: 10
+  playback_tail_ms: 100
+  process_poll_ms: 15
+  legacy:
+    model: tts/japanese/mei_normal.htsvoice
+    dictionary_env: PAWINGO_OPENJTALK_DICT
+    open_jtalk: open_jtalk
+    player: aplay
+    espeak: espeak-ng
+layout:
+  status_height: 3
+  search_status_height: 2
+  detail_height: 9
+  detail_scroll_step_percent: 10
+  dictionary_spacer_height: 1
+  kana_cell_width: 6
+  kana_label_width: 4
+  search_query_width: 51
+  target_width: 8
+  expression_width: 16
+  reading_width: 16
+  meaning_width: 33
+  voice_list_rows: 5
+  terms_height: 10
+  field_label_width: 12
+archive:
+  max_entries: 10000
+  expanded_bytes: 1073741824
+  terms_bytes: 131072
+  terms_markers: [LICENSE, TERMS, COPYING]

@@ -1,0 +1,11 @@
+Optional Mei voice: Copyright © 2009–2013 Nagoya Institute of Technology,
+Department of Computer Science, MMDAgent Project Team. CC BY 3.0.
+Source and license: https://github.com/r9y9/pyopenjtalk/tree/master/pyopenjtalk/htsvoice
+
+Optional JMdict dictionary (downloaded or imported separately):
+Copyright James William Breen and the Electronic Dictionary Research and Development Group.
+The Japanese and English components are CC BY-SA 4.0; other translations retain their
+contributors' separate copyright and terms. Search results identify JMdict/EDRDG and entry IDs.
+Project: https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project
+License statement: https://www.edrdg.org/edrdg/licence.html
+Source: https://www.edrdg.org/pub/Nihongo/JMdict.gz
