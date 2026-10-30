@@ -17,6 +17,10 @@ MatchResult match_meaning(const Vocabulary &, std::string_view answer);
 /// Fractional days returned by FSRS; never implicitly rounded to Unix seconds or calendar dates.
 using Days = std::chrono::duration<float, std::ratio<86400>>;
 
+/// Whole elapsed days retain signed 64-bit input until validation at the Rust u32 boundary.
+/// std::chrono::days may use a 32-bit representation and truncate before validation on libc++.
+using ElapsedDays = std::chrono::duration<std::int64_t, std::ratio<86400>>;
+
 /// Recall rating, stored independently of a language backend's answer-matching result.
 enum class Rating : std::uint32_t { again = 1, hard = 2, good = 3, easy = 4 };
 
@@ -73,7 +77,7 @@ struct Outcome {
 struct Plan {
   std::int64_t vocabulary_id, revision;
   std::chrono::sys_seconds reviewed_at;
-  std::chrono::days elapsed;
+  ElapsedDays elapsed;
   float desired_retention;
   std::array<Outcome, 4> outcomes; ///< Again, Hard, Good and Easy in stable rating order.
   QuestionType kind = QuestionType::meaning;
@@ -94,7 +98,7 @@ struct Record {
   Match result;
   std::string answer;
   std::chrono::sys_seconds reviewed_at, due;
-  std::chrono::days elapsed;
+  ElapsedDays elapsed;
   MemoryState memory;
   float desired_retention;
   QuestionType kind = QuestionType::meaning;
@@ -103,7 +107,7 @@ struct Record {
 /// Scheduling input. A new card has no memory and zero elapsed days.
 struct ScheduleRequest {
   std::optional<MemoryState> memory;
-  std::chrono::days elapsed{};
+  ElapsedDays elapsed{};
   /// Omit to use the embedded default; supplied retention must be finite and strictly in (0, 1).
   std::optional<float> desired_retention;
 };
@@ -111,7 +115,7 @@ struct ScheduleRequest {
 /// One chronological review; the first review of a new card has zero elapsed days.
 struct Review {
   Rating rating;
-  std::chrono::days elapsed;
+  ElapsedDays elapsed;
 };
 
 /// Typed failures crossing the native algorithm boundary, without string-based classification.

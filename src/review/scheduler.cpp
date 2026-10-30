@@ -21,7 +21,7 @@ Error error(std::uint32_t status) {
   }
 }
 
-bool valid_elapsed(std::chrono::days elapsed) {
+bool valid_elapsed(ElapsedDays elapsed) {
   return elapsed.count() >= 0 && elapsed.count() <= std::numeric_limits<std::uint32_t>::max();
 }
 
@@ -210,12 +210,12 @@ plan_review(const Scheduler &scheduler, const Card &card, std::chrono::sys_secon
     now.time_since_epoch().count() < 0 || card.due.time_since_epoch().count() < 0 ||
     now < card.due || card.memory.has_value() != card.last_review.has_value())
     return invalid();
-  std::chrono::days elapsed{};
+  ElapsedDays elapsed{};
   if (card.last_review) {
     if (card.last_review->time_since_epoch().count() < 0 || now < *card.last_review ||
       card.due < *card.last_review)
       return invalid();
-    elapsed = std::chrono::duration_cast<std::chrono::days>(now - *card.last_review);
+    elapsed = std::chrono::duration_cast<ElapsedDays>(now - *card.last_review);
   }
   try {
     struct Policy {

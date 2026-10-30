@@ -102,9 +102,14 @@ int main() {
     require(!negative && negative.error().kind == ErrorKind::invalid_input,
       "negative elapsed days are rejected before unsigned conversion");
     auto overflow = model->next_states({.memory = next->good.memory,
-      .elapsed = std::chrono::days(std::int64_t(std::numeric_limits<std::uint32_t>::max()) + 1)});
+      .elapsed = ElapsedDays(std::int64_t(std::numeric_limits<std::uint32_t>::max()) + 1)});
     require(!overflow && overflow.error().kind == ErrorKind::invalid_input,
       "elapsed days cannot truncate at the ABI boundary");
+    const std::array<Review, 1> overflowing_history{
+      {{Rating::good, ElapsedDays(std::int64_t(std::numeric_limits<std::uint32_t>::max()) + 1)}}};
+    auto invalid_history = model->memory_state(overflowing_history, next->good.memory);
+    require(!invalid_history && invalid_history.error().kind == ErrorKind::invalid_input,
+      "history elapsed days cannot truncate at the ABI boundary");
     auto inconsistent = model->next_states({.elapsed = std::chrono::days(1)});
     require(!inconsistent && inconsistent.error().kind == ErrorKind::invalid_input,
       "a new card cannot have an elapsed previous-review interval");
