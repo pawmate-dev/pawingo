@@ -132,7 +132,8 @@ target("pawingo-runtime")
   end)
   add_files("modules/*.cppm", {public = true})
   add_files("src/settings.cpp", "src/ui/input.cpp", "src/ui/activity.cpp", "src/learning/activity.cpp", "src/io/diagnostics.cpp", "src/io/native.cpp", "src/review/scheduler.cpp", "src/review/panel.cpp", "src/download.cpp", "src/storage/store.cpp", "src/plugins/registry.cpp", "src/plugins/packages.cpp", "src/plugins/package_panel.cpp", "src/learning/search.cpp")
-  if is_plat("windows") then add_syslinks("xmllite", {public = true}) end
+  -- libarchive's static XAR reader/writer requires XmlLite and OLE stream helpers.
+  if is_plat("windows") then add_syslinks("xmllite", "ole32", {public = true}) end
   add_packages("ftxui", "yaml-cpp", "sqlite3", "sqlite_orm", "libcurl", "picosha2", "libarchive", {public = true})
   if is_plat("linux") then
     add_syslinks("dl", "pthread", "m", {public = true})
