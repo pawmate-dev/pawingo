@@ -1,4 +1,6 @@
 module;
+// Pawingo stores UTF-8 strings; omit upstream wide-string adapters removed by C++26.
+#define SQLITE_ORM_OMITS_CODECVT
 #include <sqlite_orm/sqlite_orm.h>
 
 module pawingo.storage;

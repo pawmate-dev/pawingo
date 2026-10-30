@@ -67,6 +67,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: astral-sh/setup-uv@v7
       - uses: extractions/setup-just@v3
+        if: runner.os != 'Windows' || runner.arch != 'ARM64'
+      - name: Install just natively on Windows ARM64
+        if: runner.os == 'Windows' && runner.arch == 'ARM64'
+        run: cargo install just --locked --version 1.59.0
       - uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: "3.1.2"
@@ -94,23 +98,32 @@ jobs:
       - name: Configure Windows
         if: runner.os == 'Windows'
         run:
-          xmake f -y -m release -a '${{ matrix.arch }}' --toolchain=msvc
-          --runtimes=MD
+          xmake f -y -p windows -m release -a '${{ matrix.arch }}'
+          --toolchain=msvc --runtimes=MD
       - name: Configure Ubuntu
         if: runner.os == 'Linux'
         run:
           xmake f -y -m release -a '${{ matrix.arch }}' --toolchain=clang
           --runtimes=c++_shared
+      - name: Enable LLVM 18 experimental threading support
+        if: matrix.llvm == 'llvm@18'
+        run:
+          echo 'PAWINGO_EXPERIMENTAL_FLAGS=-fexperimental-library' >>
+          "$GITHUB_ENV"
       - name: Configure macOS
         if: runner.os == 'macOS'
         run: >-
           xmake f -y -m release -a '${{ matrix.arch }}' --toolchain=clang
           --runtimes=c++_shared --cxflags="-I$PAWINGO_LLVM_PREFIX/include/c++/v1
-          -D_LIBCPP_DISABLE_AVAILABILITY"
+          -D_LIBCPP_DISABLE_AVAILABILITY $PAWINGO_EXPERIMENTAL_FLAGS"
           --ldflags="-L$PAWINGO_LLVM_PREFIX/lib/c++
-          -Wl,-rpath,$PAWINGO_LLVM_PREFIX/lib/c++"
+          -Wl,-rpath,$PAWINGO_LLVM_PREFIX/lib/c++ $PAWINGO_EXPERIMENTAL_FLAGS"
           --shflags="-L$PAWINGO_LLVM_PREFIX/lib/c++
-          -Wl,-rpath,$PAWINGO_LLVM_PREFIX/lib/c++"
+          -Wl,-rpath,$PAWINGO_LLVM_PREFIX/lib/c++ $PAWINGO_EXPERIMENTAL_FLAGS"
+      - name: Check standard-library module and threading support
+        run: |
+          xmake build toolchain-check
+          xmake run toolchain-check
       - name: Build and verify
         run: |
           just build

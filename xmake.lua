@@ -182,6 +182,12 @@ target("voicevox-test-runtime")
   add_includedirs("third_party/voicevox")
   set_symbols("debug")
 
+-- Exercise standard-library modules and experimental link requirements before the main build.
+target("toolchain-check")
+  set_kind("binary")
+  set_default(false)
+  add_files("tests/toolchain.cpp")
+
 target("pawingo-test-support")
   set_kind("static")
   set_default(false)
