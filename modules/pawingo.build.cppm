@@ -51,6 +51,6 @@ inline constexpr char version[] = PAWINGO_HOST_VERSION;
 inline constexpr char release[] = PAWINGO_RELEASE_BUILD;
 inline constexpr char platform[] = PAWINGO_BUILD_PLATFORM;
 inline constexpr char abi[] = PAWINGO_BUILD_COMPILER
-  ";" PAWINGO_BUILD_STDLIB ";ftxui-6.1.9;api-1;modules-3;host-" PAWINGO_HOST_VERSION
+  ";" PAWINGO_BUILD_STDLIB ";ftxui-6.1.9;api-1;modules-4;host-" PAWINGO_HOST_VERSION
   ";build-" PAWINGO_RELEASE_BUILD ";mode-" PAWINGO_BUILD_MODE ";" PAWINGO_BUILD_PLATFORM;
 } // namespace pawingo::build

@@ -327,7 +327,7 @@ int main(int argc, char **argv) {
         manager->installed()->front().version == "0.1.1",
       "cancellation after transfer cannot activate an older package");
   } catch (const std::exception &e) {
-    std::cerr << e.what() << '\n';
+    std::cout << e.what() << std::endl;
     return 1;
   }
 }

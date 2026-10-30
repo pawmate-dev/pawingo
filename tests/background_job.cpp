@@ -63,7 +63,7 @@ int main() {
     active_job_should_reject_overlapping_work_and_observe_cancellation();
     work_failure_should_reach_completion_without_escaping_the_thread();
   } catch (const std::exception &error) {
-    std::cerr << error.what() << '\n';
+    std::cout << error.what() << std::endl;
     return 1;
   }
 }

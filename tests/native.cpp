@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
         std::chrono::steady_clock::now() - start < std::chrono::seconds(2),
       "cancellation terminates and joins the native child promptly");
   } catch (const std::exception &error) {
-    std::cerr << error.what() << '\n';
+    std::cout << error.what() << std::endl;
     return 1;
   }
 }

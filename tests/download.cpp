@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
     }
     require(!std::filesystem::exists(directory), "scratch directory must be released");
   } catch (const std::exception &error) {
-    std::cerr << error.what() << '\n';
+    std::cout << error.what() << std::endl;
     return 1;
   }
 }

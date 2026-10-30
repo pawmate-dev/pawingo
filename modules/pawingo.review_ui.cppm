@@ -56,7 +56,7 @@ ReviewPanel review_panel(Store &,
   ReviewContent content = {});
 
 /// Optional host capability for plugin-owned review panels, without exposing the database.
-/// This separate interface leaves the native Host and LanguagePlugin vtables unchanged.
+/// Borrowed through Host::capability(HostCapability::review); no cross-library RTTI is required.
 class PAWINGO_INTERFACE ReviewProvider {
 public:
   virtual ~ReviewProvider() = default;

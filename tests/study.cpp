@@ -243,7 +243,7 @@ int main() {
         "a stale session refreshes safely without duplicating a committed review");
     }
   } catch (const std::exception &e) {
-    std::cerr << e.what() << '\n';
+    std::cout << e.what() << std::endl;
     return 1;
   }
 }

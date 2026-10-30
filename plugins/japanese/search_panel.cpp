@@ -171,7 +171,8 @@ SearchPanel search_panel(std::shared_ptr<Dictionary> dictionary,
   auto state = std::make_shared<SearchState>();
   if (!examples)
     examples = std::make_shared<Examples>();
-  if (auto *events = dynamic_cast<pawingo::UiRefresh *>(&host))
+  if (auto *events =
+        static_cast<pawingo::UiRefresh *>(host.capability(pawingo::HostCapability::ui_refresh)))
     state->redraw = [events] {
       events->request_redraw();
     };

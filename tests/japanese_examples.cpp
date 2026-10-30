@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
       require(sample && *sample > 0, "official live format sample imports successfully");
     }
   } catch (const std::exception &e) {
-    std::cerr << e.what() << '\n';
+    std::cout << e.what() << std::endl;
     return 1;
   }
 }

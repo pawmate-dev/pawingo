@@ -18,10 +18,18 @@ export namespace pawingo {
 inline constexpr std::uint32_t plugin_api_version = 1;
 inline constexpr const char *plugin_entry_symbol = "pawingo_plugin_v1";
 
+class PanelHelpProvider;
+
 /// Language-specific capabilities exposed through the native plugin boundary.
 class PAWINGO_INTERFACE LanguagePlugin {
 public:
   virtual ~LanguagePlugin() = default;
+
+  /// Returns optional footer help, borrowed until plugin destruction.
+  virtual PanelHelpProvider *panel_help_provider() {
+    return nullptr;
+  }
+
   /// Returns the language's display name.
   virtual std::string language() const = 0;
   /// Empty means no result. Every returned entry must identify its source;
@@ -39,7 +47,7 @@ public:
 };
 
 /// Optional extension: the host places panel shortcuts in its screen footer.
-/// Keeping this separate preserves the existing LanguagePlugin vtable.
+/// Accessed through panel_help_provider(), without cross-library RTTI.
 class PAWINGO_INTERFACE PanelHelpProvider {
 public:
   virtual ~PanelHelpProvider() = default;

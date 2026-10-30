@@ -150,7 +150,7 @@ int main(int argc, char **argv) {
     require(selected.text == "橋" && selected.reading == "はし",
       "search speech adapter receives both selected spelling and reading");
   } catch (const std::exception &e) {
-    std::cerr << e.what() << '\n';
+    std::cout << e.what() << std::endl;
     return 1;
   }
 }

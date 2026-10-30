@@ -19,6 +19,14 @@ using pawingo::config::ui_text;
 
 class UiHost : public pawingo::Host, public pawingo::UiRefresh, public pawingo::ui::ReviewProvider {
 public:
+  void *capability(pawingo::HostCapability kind) override {
+    if (kind == pawingo::HostCapability::ui_refresh)
+      return static_cast<pawingo::UiRefresh *>(this);
+    if (kind == pawingo::HostCapability::review)
+      return static_cast<pawingo::ui::ReviewProvider *>(this);
+    return nullptr;
+  }
+
   UiHost(pawingo::Store &store, ftxui::ScreenInteractive &screen)
     : store_(store),
       screen_(screen) {
@@ -252,7 +260,7 @@ int main(int argc, char **argv) {
         footer = downloads.help();
       } else {
         content.push_back(plugin_panel->Render());
-        if (auto *help = dynamic_cast<pawingo::PanelHelpProvider *>(current))
+        if (auto *help = current->panel_help_provider())
           footer = help->panel_help(features[feature]);
         else
           footer = ui_text("esc_back");

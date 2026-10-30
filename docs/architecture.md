@@ -51,7 +51,7 @@ remain in the global module and import project modules. These are entry boundari
 header-based API. `just check-modules` enforces project imports and module declarations and runs
 before `just test`.
 
-The ABI tag includes `modules-3` and the release build identity. Older plugin binaries must be
+The ABI tag includes `modules-4` and the release build identity. Older plugin binaries must be
 rebuilt after the typed-card contract change. Named modules affect C++ linkage and RTTI; question
 types also extend the shared card contract. The native `pawingo_plugin_v1` descriptor entry shape is
 unchanged, but its ABI tag rejects old binaries. Native entry adapters explicitly export their C
@@ -233,9 +233,10 @@ callbacks never access Store. Reading prompts do not expose speech until feedbac
 the solution and proposed intervals; a separate confirmation commits the rating. Escape from
 feedback restores the draft; leaving a question does not write an event. The plugin supplies its
 matcher through the optional `pawingo::ui::ReviewProvider` host capability; the host factory borrows
-storage without exposing its connection to the plugin. This separate interface preserves the
-existing native Host and LanguagePlugin vtables. Sessions require a nonempty source-language code
-and apply it on every queue load. Conservative saved-meaning matching is the shared default.
+storage without exposing its connection to the plugin. Capabilities are queried explicitly through
+the host vtable, avoiding cross-library RTTI identity differences in libc++. The modules-4 ABI
+rejects plugins built against earlier vtables. Sessions require a nonempty source-language code and
+apply it on every queue load. Conservative saved-meaning matching is the shared default.
 Semicolon-delimited alternatives, whitespace and ASCII case variants are supported; the matcher does
 not guess synonyms or accept substrings. Ratings can be adjusted independently when the automated
 assessment is incomplete.

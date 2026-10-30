@@ -54,7 +54,8 @@ ftxui::Component voicevox_panel(std::shared_ptr<Voicevox> service, pawingo::Host
   auto model =
     pawingo::ui::text_input(&s->config.model, ui_text("voice_model_vvm_file"), input_options);
   auto notify = [&host] {
-    if (auto *ui = dynamic_cast<pawingo::UiRefresh *>(&host))
+    if (auto *ui =
+          static_cast<pawingo::UiRefresh *>(host.capability(pawingo::HostCapability::ui_refresh)))
       ui->request_redraw();
   };
   auto launch = [s, notify](auto work) {

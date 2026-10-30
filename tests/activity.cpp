@@ -100,7 +100,7 @@ int main() {
         "heat dots preserve the terminal background without inverse blocks");
     }
   } catch (const std::exception &e) {
-    std::cerr << e.what() << '\n';
+    std::cout << e.what() << std::endl;
     return 1;
   }
 }

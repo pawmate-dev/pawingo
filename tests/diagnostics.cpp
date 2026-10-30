@@ -53,7 +53,7 @@ int main() {
         outer.contains("preserved after failed redirection"),
       "stderr is restored on normal exit and unwinding, and preserved on setup failure");
   } catch (const std::exception &e) {
-    std::cerr << e.what() << '\n';
+    std::cout << e.what() << std::endl;
     return 1;
   }
 }

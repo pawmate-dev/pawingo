@@ -13,10 +13,20 @@ export import pawingo.types;
 
 /// Frontend-neutral services supplied to independently loaded language backends.
 export namespace pawingo {
+/// Optional interfaces requested by plugins; returned pointers are borrowed from the host.
+/// ui_refresh returns UiRefresh*, review returns ui::ReviewProvider* (pawingo.review_ui).
+enum class HostCapability { ui_refresh, review };
+
 /// Services are provided by the host and remain valid until the plugin is destroyed.
 class PAWINGO_INTERFACE Host {
 public:
   virtual ~Host() = default;
+
+  /// Returns the requested optional interface or nullptr; valid until host destruction.
+  virtual void *capability(HostCapability) {
+    return nullptr;
+  }
+
   /// Saves a sourced vocabulary entry; validation and persistence failures propagate.
   virtual void save(const Vocabulary &entry) = 0;
   /// Returns configured resources, including disabled entries, in provider priority order.

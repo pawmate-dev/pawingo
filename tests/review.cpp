@@ -148,7 +148,7 @@ int main() {
     require(!stale && stale.error().kind == ErrorKind::invalid_input && moved.next_states({}),
       "moving transfers native ownership and leaves a safe moved-from wrapper");
   } catch (const std::exception &e) {
-    std::cerr << e.what() << '\n';
+    std::cout << e.what() << std::endl;
     return 1;
   }
 }

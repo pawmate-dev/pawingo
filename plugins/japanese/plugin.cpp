@@ -171,7 +171,8 @@ ftxui::Component panel(pawingo::Host &host,
   using namespace ftxui;
   auto state = std::make_shared<State>();
   state->voicevox = std::move(voicevox);
-  if (auto *events = dynamic_cast<pawingo::UiRefresh *>(&host))
+  if (auto *events =
+        static_cast<pawingo::UiRefresh *>(host.capability(pawingo::HostCapability::ui_refresh)))
     state->redraw = [events] {
       events->request_redraw();
     };
@@ -275,6 +276,10 @@ ftxui::Component panel(pawingo::Host &host,
 
 class Japanese : public pawingo::LanguagePlugin, public pawingo::PanelHelpProvider {
 public:
+  pawingo::PanelHelpProvider *panel_help_provider() override {
+    return this;
+  }
+
   std::string panel_help(const std::string &id) const override {
     if (id == feature_labels[1])
       return review_help_ ? review_help_() : pawingo::config::ui_text("esc_back");
@@ -308,7 +313,9 @@ public:
 
   ftxui::Component create_panel(const std::string &id, pawingo::Host &host) override {
     if (id == feature_labels[1]) {
-      auto *reviews = dynamic_cast<pawingo::ui::ReviewProvider *>(&host);
+      auto *reviews = static_cast<pawingo::ui::ReviewProvider *>(
+        host.capability(pawingo::HostCapability::review)
+      );
       if (!reviews) {
         review_help_ = {};
         return ftxui::Renderer([] {

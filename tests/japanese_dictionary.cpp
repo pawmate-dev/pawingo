@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
       pawingo::tests::unset_environment("XDG_DATA_HOME");
     std::filesystem::remove_all(directory);
   } catch (const std::exception &e) {
-    std::cerr << e.what() << '\n';
+    std::cout << e.what() << std::endl;
     return 1;
   }
 }

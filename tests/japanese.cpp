@@ -13,6 +13,14 @@ import pawingo.review_ui;
 
 class Host : public pawingo::Host, public pawingo::UiRefresh, public pawingo::ui::ReviewProvider {
 public:
+  void *capability(pawingo::HostCapability kind) override {
+    if (kind == pawingo::HostCapability::ui_refresh)
+      return static_cast<pawingo::UiRefresh *>(this);
+    if (kind == pawingo::HostCapability::review)
+      return static_cast<pawingo::ui::ReviewProvider *>(this);
+    return nullptr;
+  }
+
   std::vector<pawingo::Vocabulary> saved;
   std::atomic<unsigned> redraws{0};
   pawingo::Store store{":memory:"};
@@ -64,7 +72,7 @@ int main(int argc, char **argv) {
       require(text.find("あ") != std::string::npos && text.find("ア") != std::string::npos,
         "both scripts");
       require(!panel->OnEvent(ftxui::Event::Character('k')), "removed script key");
-      auto *help = dynamic_cast<pawingo::PanelHelpProvider *>(plugin);
+      auto *help = plugin->panel_help_provider();
       require(help && help->panel_help("五十音図").find("h/k") == std::string::npos,
         "panel footer");
       require(panel->OnEvent(ftxui::Event::Character('d')), "voice state");
@@ -77,7 +85,7 @@ int main(int argc, char **argv) {
       host.store.save({"de", "Katze", "", "eng", "cat", "fixture", ""});
       host.store.save({"ja", "猫", "ねこ", "eng", "cat; feline", "fixture", ""});
       auto panel = plugin->create_panel("復習", host);
-      auto *help = dynamic_cast<pawingo::PanelHelpProvider *>(plugin);
+      auto *help = plugin->panel_help_provider();
       require(panel && host.review_language == "ja" && help &&
           help->panel_help("復習").find("check") != std::string::npos,
         "native plugin requests a language-scoped host session and exposes its footer");
@@ -253,7 +261,7 @@ int main(int argc, char **argv) {
       for (int i = 0; i < 100 && host.redraws.load() == previous_redraws; ++i)
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
       require(host.redraws.load() > previous_redraws, "query completion requests a host redraw");
-      auto *help = dynamic_cast<pawingo::PanelHelpProvider *>(plugin);
+      auto *help = plugin->panel_help_provider();
       require(help, "search footer provider");
       for (int i = 0; i < 100 && help->panel_help("語彙検索").find("scroll") == std::string::npos;
         ++i) {

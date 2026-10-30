@@ -272,7 +272,7 @@ int main(int argc, char **argv) {
       require(cancelled, "panel destruction joins its cancelled speech worker");
     }
   } catch (const std::exception &e) {
-    std::cerr << e.what() << '\n';
+    std::cout << e.what() << std::endl;
     return 1;
   }
 }
