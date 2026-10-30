@@ -55,7 +55,11 @@ int main(int argc, char **argv) {
     auto gzip = directory / "dictionary.gz";
     std::ifstream input(fixture);
     const std::string xml((std::istreambuf_iterator<char>(input)), {});
-    gzFile file = gzopen(gzip.string().c_str(), "wb");
+#ifdef _WIN32
+    gzFile file = gzopen_w(gzip.c_str(), "wb");
+#else
+    gzFile file = gzopen(gzip.c_str(), "wb");
+#endif
     require(file != nullptr, "gzip fixture");
     require(gzwrite(file, xml.data(), static_cast<unsigned>(xml.size())) ==
         static_cast<int>(xml.size()),

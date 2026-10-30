@@ -116,7 +116,11 @@ int main(int argc, char **argv) {
     const auto gzip = root / "index.gz";
     std::ifstream file(input);
     const std::string bytes(std::istreambuf_iterator<char>(file), {});
+#ifdef _WIN32
+    auto compressed = gzopen_w(gzip.c_str(), "wb");
+#else
     auto compressed = gzopen(gzip.c_str(), "wb");
+#endif
     require(compressed &&
         gzwrite(compressed, bytes.data(), bytes.size()) == static_cast<int>(bytes.size()) &&
         gzclose(compressed) == Z_OK,
