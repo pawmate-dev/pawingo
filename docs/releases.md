@@ -1,8 +1,8 @@
 # Releases and plugin packages
 
-Pawingo publishes the host and Japanese plugin as separate assets of the same release. The initial
-binary target is Linux x86_64 with GNU libc. Both assets must come from one SDK build; a version
-range alone does not make native C++ plugins compatible.
+Pawingo publishes the host and Japanese plugin as separate assets of the same release. The release
+matrix targets Linux, Windows and macOS, each on x86_64 and ARM64. Both assets must come from one
+SDK build; a version range alone does not make native C++ plugins compatible.
 
 For 0.1.0, public binary publication remains blocked on the corresponding-source distribution and
 hosted CI verification. See the [0.1.0 changelog](../CHANGELOG.md#010-unreleased). Local test
@@ -11,7 +11,9 @@ complete.
 
 ## Building a release
 
-From a clean checkout with the normal xmake dependencies plus Python 3.12+, patchelf and just:
+From a clean checkout with xmake, Rust, just and Python 3.12+; Linux additionally needs patchelf,
+and macOS needs the Xcode command-line tools. Install FTXUI and other project libraries through
+xmake, not through the runner distribution package manager:
 
 ```sh
 export PAWINGO_RELEASE_BUILD="$(git rev-parse HEAD)"
@@ -38,16 +40,28 @@ build/release/
   SHA256SUMS
 ```
 
-The plugin archive contains `plugin.yaml`, its entry in `lib/`, bundled ELF dependencies and
-notices. The host archive contains `bin/pawingo`, its ELF dependencies, build metadata and notices.
-Run the host as `bin/pawingo` after extraction. The packager rewrites RPATHs to paths relative to
-each file; it copies dependency SONAMEs as regular files so packages need no symlinks. Dictionaries,
-sentence corpora, VOICEVOX runtimes and voice models remain independent user-managed resources.
+The plugin archive contains `plugin.yaml`, its entry in `lib/`, bundled native dependencies and
+notices. The host archive contains its executable in `bin/`, native dependencies, build metadata and
+notices. Run the host as `bin/pawingo` after extraction. The packager rewrites RPATHs to paths
+relative to each file; it copies dependency SONAMEs as regular files so packages need no symlinks.
+Dictionaries, sentence corpora, VOICEVOX runtimes and voice models remain independent user-managed
+resources.
 
-This is a rolling Linux build, not a promise of compatibility with older distributions. Glibc and
-the ELF loader remain system dependencies; `dependencies.yaml` records the build's glibc version.
+The native matrix uses Ubuntu 24.04 (x86_64/ARM64), Windows 2025 (x86_64), Windows 11 ARM64, macOS
+15 Intel and macOS 15 Apple Silicon. Ubuntu uses LLVM 22 with matching libc++; Windows uses MSVC and
+its standard-library modules. macOS Intel uses the runner's available LLVM 18, while Apple Silicon
+uses Homebrew LLVM 22. These compiler/standard-library combinations still require successful hosted
+validation; listing a target does not certify a working release.
+
+Linux packages retain glibc and the ELF loader as system requirements. The packager records the
+build's glibc version, bundles the remaining ELF dependency closure and rewrites RPATHs. macOS
+packages bundle non-system Mach-O dependencies, rewrite loader-relative references and ad-hoc sign
+the modified images. Ad-hoc signing is not Apple Developer ID signing or notarization. Windows
+packages bundle architecture-matching imported and delay-loaded DLL dependencies beside their owning
+executable or plugin; operating-system DLLs remain system requirements. All platforms use `.tar.gz`,
+supported by the shared libarchive installer. Windows runs `bin/pawingo.exe`.
+
 The Nix flake remains a development shell; exporting a Nix closure is a separate distribution path.
-Windows/macOS native loader and packaging adapters are not supplied by this initial release job.
 Supplied third-party notices and available distro/source notices are copied into each archive;
 Pawingo-owned source is MIT licensed. The combined binaries include sqlite_orm under AGPL-3.0; see
 the root NOTICE and the [0.1.0 changelog](../CHANGELOG.md#010-unreleased) before making the draft
@@ -55,11 +69,22 @@ public.
 
 ## GitHub workflow
 
-`.github/workflows/release.yaml` builds in an Arch Linux container when a version tag is pushed. A
-manual dispatch must also select a version tag. The job uses the commit SHA as the SDK build
-identity, runs the normal tests and Python style checks, creates the assets in the order above and
-uploads them to a **draft** release. It does not publish the draft automatically or overwrite an
-existing release.
+`.github/workflows/release.yaml` builds natively on six hosted runners when a version tag is pushed;
+no Arch container or pacman step is used. A manual dispatch on a branch accepts a version tag as
+input and validates/packages the full matrix without creating a Release; dispatching a version tag
+can create its draft. Each matrix job uses the commit SHA as its SDK identity, runs the same tests
+and Python style checks, packages its plugin, embeds the platform-local catalog in its host and
+smoke-tests the relocated host/plugin pair. Native target filenames come from `xmake release-paths`,
+so build directory, architecture and `.so`/`.dylib`/`.dll` suffixes are not hardcoded in CI or test
+recipes.
+
+Each job uploads its pair, local catalog and checksums as an Actions artifact. Only after every job
+succeeds does one aggregation job verify every checksum, the release commit, host identity and
+catalog-pinned plugin, merge all six catalog artifacts into `plugins-v1.yaml`, and create one draft
+Release. The downloaded catalog contains every platform; the host's embedded offline catalog only
+needs its own platform. The final `SHA256SUMS` covers twelve archives and the merged catalog.
+`python -m tools.release_collect` rejects missing/duplicate platforms and differing build commits.
+The workflow does not publish the draft automatically or overwrite an existing release.
 
 Review the draft assets and notes, then publish through GitHub. When enabling immutable releases,
 attach every asset before publication. See
@@ -143,10 +168,10 @@ or cancelled writes preserve the previous inventory; a leftover unreferenced ver
 This guarantees atomic visibility, not power-loss durability on every filesystem.
 
 The next startup validates active metadata/ABI before loading only the registered entry; bundled
-dependency libraries are not discovered as plugins. Existing flat development `.so` discovery and
-`PAWINGO_PLUGIN_DIR` continue to work. Changes require a restart. An already installed identical
-artifact is reused without another transfer. Old version directories are kept; uninstall/garbage
-collection and in-process hot reload are not implemented.
+dependency libraries are not discovered as plugins. Existing flat development `.so`/`.dylib`/`.dll`
+discovery and `PAWINGO_PLUGIN_DIR` continue to work. Changes require a restart. An already installed
+identical artifact is reused without another transfer. Old version directories are kept;
+uninstall/garbage collection and in-process hot reload are not implemented.
 
 Writers use a `.package-lock` directory. A normal exit removes it; after a crash, remove a stale
 lock only after ensuring no package operation is running. No automatic stale-lock recovery is

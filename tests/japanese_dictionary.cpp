@@ -1,9 +1,10 @@
 #include <stdlib.h>
-#include <unistd.h>
 #include <zlib.h>
 
 import std;
 import pawingo.japanese.dictionary;
+import pawingo.io;
+import pawingo.tests.platform;
 
 void require(bool condition, const char *message) {
   if (!condition)
@@ -45,17 +46,16 @@ int main(int argc, char **argv) {
     require(dictionary.search("%", "en", {fixture}).empty(), "search is literal");
     require(dictionary.search("   ", "en", {fixture}).empty(), "empty query");
     require(dictionary.search("猫", "en-GB", {fixture}).size() == 2, "target locale alias");
-    char temporary[] = "/tmp/pawingo-dictionary-test-XXXXXX";
-    require(mkdtemp(temporary) != nullptr, "temporary dictionary directory");
-    auto directory = std::filesystem::path(temporary);
+    pawingo::io::TemporaryArtifact temporary(std::filesystem::temp_directory_path());
+    auto directory = temporary.file().parent_path();
     const char *old = std::getenv("XDG_DATA_HOME");
     const bool had = old;
     const std::string previous = old ? old : "";
-    setenv("XDG_DATA_HOME", directory.c_str(), 1);
+    pawingo::tests::environment("XDG_DATA_HOME", directory.string());
     auto gzip = directory / "dictionary.gz";
     std::ifstream input(fixture);
     const std::string xml((std::istreambuf_iterator<char>(input)), {});
-    gzFile file = gzopen(gzip.c_str(), "wb");
+    gzFile file = gzopen(gzip.string().c_str(), "wb");
     require(file != nullptr, "gzip fixture");
     require(gzwrite(file, xml.data(), static_cast<unsigned>(xml.size())) ==
         static_cast<int>(xml.size()),
@@ -101,9 +101,9 @@ int main(int argc, char **argv) {
     }
     require(rejected, "cancel import");
     if (had)
-      setenv("XDG_DATA_HOME", previous.c_str(), 1);
+      pawingo::tests::environment("XDG_DATA_HOME", previous);
     else
-      unsetenv("XDG_DATA_HOME");
+      pawingo::tests::unset_environment("XDG_DATA_HOME");
     std::filesystem::remove_all(directory);
   } catch (const std::exception &e) {
     std::cerr << e.what() << '\n';

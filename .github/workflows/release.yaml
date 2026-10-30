@@ -1,59 +1,176 @@
-name: Linux release draft
+name: Native release draft
 on:
-    push:
-        tags: ["v*"]
-    workflow_dispatch:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description:
+          Version to validate when running on a branch (no Release is created)
+        default: v0.1.0
+        required: true
+        type: string
+env:
+  RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
 permissions:
-    contents: write
+  contents: read
 concurrency:
-    group: release-${{ github.ref }}
-    cancel-in-progress: false
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
-    linux-x86_64:
-        runs-on: ubuntu-latest
-        container: archlinux:base-devel
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux-x86_64-gnu
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            platform: linux-aarch64-gnu
+            arch: arm64
+          - runner: windows-2025
+            platform: windows-x86_64
+            arch: x64
+            msvc_arch: x64
+          - runner: windows-11-arm
+            platform: windows-aarch64
+            arch: arm64
+            msvc_arch: arm64
+          - runner: macos-15-intel
+            platform: macos-x86_64
+            arch: x86_64
+            llvm: llvm@18
+          - runner: macos-15
+            platform: macos-aarch64
+            arch: arm64
+            llvm: llvm@22
+    defaults:
+      run:
+        shell: bash
+    env:
+      PAWINGO_RELEASE_BUILD: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate release tag
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: astral-sh/setup-uv@v7
+      - uses: extractions/setup-just@v3
+      - uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: "3.1.2"
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+        with:
+          arch: ${{ matrix.msvc_arch }}
+      - name: Install Ubuntu compiler and native tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config patchelf libsqlite3-dev libcurl4-openssl-dev libarchive-dev libexpat1-dev zlib1g-dev
+          curl --fail --location https://apt.llvm.org/llvm.sh --output "$RUNNER_TEMP/llvm.sh"
+          sudo bash "$RUNNER_TEMP/llvm.sh" 22
+          sudo apt-get install -y clang-tools-22 libc++-22-dev libc++abi-22-dev
+          echo '/usr/lib/llvm-22/bin' >> "$GITHUB_PATH"
+      - name: Install macOS compiler and native tools
+        if: runner.os == 'macOS'
         env:
-            XMAKE_ROOT: y
-            PAWINGO_RELEASE_BUILD: ${{ github.sha }}
-        steps:
-            - name: Install build and packaging tools
-              run: >-
-                  pacman -Syu --noconfirm --needed git clang llvm gcc xmake rust just pkgconf cmake ninja
-                  ftxui sqlite expat zlib curl libarchive yaml-cpp python patchelf github-cli uv
-            - uses: actions/checkout@v6
-              with:
-                  fetch-depth: 0
-                  persist-credentials: false
-            - name: Validate release tag
-              shell: bash
-              run: |
-                  [[ "$GITHUB_REF_TYPE" == tag ]]
-                  [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-                  git config --global --add safe.directory "$GITHUB_WORKSPACE"
-            - name: Configure and verify
-              run: |
-                  xmake f -y -m release --toolchain=clang
-                  just build
-                  just test
-                  uvx ruff check tools/release.py tests/test_release.py
-                  uvx ruff format --check tools/release.py tests/test_release.py
-            - name: Package plugin and generate catalog
-              run: python tools/release.py plugin --tag "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"
-            - name: Embed final catalog and package host
-              env:
-                  PAWINGO_CATALOG_SOURCE: build/release/plugins-v1.yaml
-              run: |
-                  xmake build pawingo
-                  python tools/release.py core --tag "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"
-            - name: Create draft with complete assets
-              shell: bash
-              env:
-                  GH_TOKEN: ${{ github.token }}
-              run: |
-                  (cd build/release && sha256sum -c SHA256SUMS)
-                  assets=()
-                  while IFS= read -r line; do
-                    assets+=("build/release/${line#*  }")
-                  done < build/release/SHA256SUMS
-                  gh release create "$GITHUB_REF_NAME" "${assets[@]}" build/release/SHA256SUMS \
-                    --repo "$GITHUB_REPOSITORY" --verify-tag --draft --generate-notes
+          LLVM_FORMULA: ${{ matrix.llvm }}
+        run: |
+          brew install "$LLVM_FORMULA" cmake ninja pkgconf
+          echo "$(brew --prefix "$LLVM_FORMULA")/bin" >> "$GITHUB_PATH"
+          echo "PAWINGO_LLVM_PREFIX=$(brew --prefix "$LLVM_FORMULA")" >> "$GITHUB_ENV"
+      - name: Configure Windows
+        if: runner.os == 'Windows'
+        run:
+          xmake f -y -m release -a '${{ matrix.arch }}' --toolchain=msvc
+          --runtimes=MD
+      - name: Configure Ubuntu
+        if: runner.os == 'Linux'
+        run:
+          xmake f -y -m release -a '${{ matrix.arch }}' --toolchain=clang
+          --runtimes=c++_shared
+      - name: Configure macOS
+        if: runner.os == 'macOS'
+        run: >-
+          xmake f -y -m release -a '${{ matrix.arch }}' --toolchain=clang
+          --runtimes=c++_shared --cxflags="-I$PAWINGO_LLVM_PREFIX/include/c++/v1
+          -D_LIBCPP_DISABLE_AVAILABILITY"
+          --ldflags="-L$PAWINGO_LLVM_PREFIX/lib/c++
+          -Wl,-rpath,$PAWINGO_LLVM_PREFIX/lib/c++"
+          --shflags="-L$PAWINGO_LLVM_PREFIX/lib/c++
+          -Wl,-rpath,$PAWINGO_LLVM_PREFIX/lib/c++"
+      - name: Build and verify
+        run: |
+          just build
+          just test
+          uvx ruff check tools tests/test_release.py
+          uvx ruff format --check tools tests/test_release.py
+          xmake release-paths
+      - name: Package plugin and embed its native catalog
+        run:
+          python tools/release.py plugin --tag "$RELEASE_TAG" --repo
+          "$GITHUB_REPOSITORY"
+      - name: Package and smoke-test relocated host and plugin
+        env:
+          PAWINGO_CATALOG_SOURCE: build/release/plugins-v1.yaml
+        run: |
+          xmake build pawingo
+          python tools/release.py core --tag "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: native-${{ matrix.platform }}
+          if-no-files-found: error
+          path: |
+            build/release/*.tar.gz
+            build/release/plugins-v1.yaml
+            build/release/SHA256SUMS
+  draft:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: native-*
+          path: build/native
+      - name: Verify all platforms and merge plugin catalog
+        run: >-
+          python -m tools.release_collect --inputs build/native --output
+          build/publish --tag "$RELEASE_TAG" --build "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: verified-release
+          path: build/publish/
+          if-no-files-found: error
+      - name: Create one draft after every platform passed
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (cd build/publish && sha256sum -c SHA256SUMS)
+          assets=()
+          while IFS= read -r line; do
+            assets+=("build/publish/${line#*  }")
+          done < build/publish/SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" "${assets[@]}" build/publish/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --draft --generate-notes

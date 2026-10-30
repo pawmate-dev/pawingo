@@ -1,17 +1,8 @@
 module;
-#include <cerrno>
-#include <csignal>
-#include <fcntl.h>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/event.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/elements.hpp>
-#include <spawn.h>
-#include <sys/wait.h>
-#include <unistd.h>
-extern "C" {
-extern char **environ;
-}
 
 module pawingo.japanese.plugin;
 
@@ -20,6 +11,7 @@ import pawingo.plugin;
 import pawingo.japanese.dictionary;
 import pawingo.japanese.examples;
 import pawingo.io;
+import pawingo.native;
 import pawingo.tasks;
 import pawingo.ui;
 import pawingo.review;
@@ -96,44 +88,12 @@ std::filesystem::path model_path() {
 }
 
 int run(const std::vector<std::string> &args, std::stop_token stop = {}) {
-  if (stop.stop_requested())
-    return -1;
-  std::vector<char *> argv;
-  for (const auto &arg : args)
-    argv.push_back(const_cast<char *>(arg.c_str()));
-  argv.push_back(nullptr);
-  posix_spawn_file_actions_t actions;
-  posix_spawn_file_actions_init(&actions);
-  posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0);
-  posix_spawn_file_actions_addopen(&actions, 1, "/dev/null", O_WRONLY, 0);
-  posix_spawn_file_actions_addopen(&actions, 2, "/dev/null", O_WRONLY, 0);
-  posix_spawnattr_t attributes;
-  posix_spawnattr_init(&attributes);
-  posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETPGROUP);
-  posix_spawnattr_setpgroup(&attributes, 0);
-  pid_t pid = -1;
-  int result = posix_spawnp(&pid, argv[0], &actions, &attributes, argv.data(), environ);
-  posix_spawn_file_actions_destroy(&actions);
-  posix_spawnattr_destroy(&attributes);
-  if (result != 0)
-    return -1;
-  int status = 0;
-  for (;;) {
-    auto waited = waitpid(pid, &status, WNOHANG);
-    if (waited == pid)
-      return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
-    if (waited < 0 && errno != EINTR)
-      return -1;
-    if (stop.stop_requested()) {
-      kill(-pid, SIGKILL);
-      while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
-      }
-      return -1;
-    }
-    std::this_thread::sleep_for(
-      std::chrono::milliseconds(settings().integer("tts.process_poll_ms", 1, 1000))
-    );
-  }
+  auto result = pawingo::native::run_process({.arguments = args,
+                                               .poll_interval = std::chrono::milliseconds(
+                                                 settings().integer("tts.process_poll_ms", 1, 1000)
+                                               )},
+    stop);
+  return result ? *result : -1;
 }
 
 /// Runs a resource/speech operation and projects its completion into panel status.

@@ -11,6 +11,8 @@ import std;
 #define PAWINGO_BUILD_COMPILER "clang-" __clang_version__
 #elif defined(__GNUC__)
 #define PAWINGO_BUILD_COMPILER "gcc-" __VERSION__
+#elif defined(_MSC_FULL_VER)
+#define PAWINGO_BUILD_COMPILER "msvc-" PAWINGO_TEXT(_MSC_FULL_VER)
 #else
 #define PAWINGO_BUILD_COMPILER "unknown"
 #endif
@@ -21,6 +23,9 @@ import std;
   ) ";cxx11-" PAWINGO_TEXT(_GLIBCXX_USE_CXX11_ABI)
 #elif defined(_LIBCPP_VERSION)
 #define PAWINGO_BUILD_STDLIB "libc++-" PAWINGO_TEXT(_LIBCPP_VERSION)
+#elif defined(_MSVC_STL_VERSION)
+#define PAWINGO_BUILD_STDLIB \
+  "msvc-stl-" PAWINGO_TEXT(_MSVC_STL_VERSION) "-" PAWINGO_TEXT(_MSVC_STL_UPDATE)
 #else
 #define PAWINGO_BUILD_STDLIB "unknown"
 #endif
@@ -30,7 +35,9 @@ import std;
 #define PAWINGO_BUILD_PLATFORM "linux-aarch64-gnu"
 #elif defined(_WIN32) && (defined(_M_X64) || defined(__x86_64__))
 #define PAWINGO_BUILD_PLATFORM "windows-x86_64"
-#elif defined(__APPLE__) && defined(__aarch64__)
+#elif defined(_WIN32) && (defined(_M_ARM64) || defined(__aarch64__))
+#define PAWINGO_BUILD_PLATFORM "windows-aarch64"
+#elif defined(__APPLE__) && (defined(__aarch64__) || defined(__arm64__))
 #define PAWINGO_BUILD_PLATFORM "macos-aarch64"
 #elif defined(__APPLE__) && defined(__x86_64__)
 #define PAWINGO_BUILD_PLATFORM "macos-x86_64"

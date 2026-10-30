@@ -238,7 +238,11 @@ struct Parser {
 };
 
 std::shared_ptr<const Rows> parse(const std::filesystem::path &path, std::stop_token stop) {
+#ifdef _WIN32
+  gzFile input = gzopen_w(path.c_str(), "rb");
+#else
   gzFile input = gzopen(path.c_str(), "rb");
+#endif
   if (!input)
     throw std::runtime_error("Cannot open dictionary: " + path.string());
   try {

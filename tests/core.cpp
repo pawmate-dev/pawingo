@@ -1,9 +1,9 @@
 #include <sqlite3.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 import std;
 import pawingo.core;
+import pawingo.io;
 import pawingo.plugin;
 import pawingo.review;
 
@@ -87,12 +87,10 @@ int main(int argc, char **argv) {
     auto updated = store.resources(pawingo::ResourceKind::dictionary, "fixture");
     require(updated.size() == 1 && updated[0].name == "Updated" && !updated[0].enabled,
       "resource upsert");
-    char file[] = "/tmp/pawingo-legacy-XXXXXX";
-    int fd = mkstemp(file);
-    require(fd >= 0, "create legacy database");
-    close(fd);
+    pawingo::io::TemporaryArtifact legacy_file(std::filesystem::temp_directory_path());
+    auto file = legacy_file.file().string();
     sqlite3 *legacy = nullptr;
-    require(sqlite3_open(file, &legacy) == SQLITE_OK, "open legacy database");
+    require(sqlite3_open(file.c_str(), &legacy) == SQLITE_OK, "open legacy database");
     int rc = sqlite3_exec(legacy,
       "CREATE TABLE vocabulary (id INTEGER PRIMARY KEY, language TEXT NOT NULL, expression TEXT "
       "NOT NULL, reading TEXT NOT NULL, meaning_language TEXT NOT NULL, meaning TEXT NOT NULL, "
@@ -112,7 +110,7 @@ int main(int argc, char **argv) {
       existing.save(old[0]);
       require(existing.vocabulary().size() == 1, "legacy duplicate ignored");
     }
-    unlink(file);
+    std::filesystem::remove(file);
     Provider local(false, true), remote(true, true);
     int prompts = 0;
     auto ask = [&](const pawingo::DictionaryProvider &, const std::string &) {

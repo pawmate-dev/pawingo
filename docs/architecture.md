@@ -19,6 +19,7 @@ as their interface; project dependencies use `import` or `export import`.
 | Module                                                  | Responsibility                                                                         |
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `pawingo.types`, `pawingo.host`                         | Shared vocabulary/resource models and borrowed host services                           |
+| `pawingo.native`                                        | Native library ownership and cancellable process adapters                              |
 | `pawingo.build`                                         | Compiled host/platform/toolchain identity shared with native descriptors               |
 | `pawingo.packages`, `pawingo.packages_ui`               | Offline catalog, verified versioned installation, restart activation and download TUI  |
 | `pawingo.plugin`                                        | Native plugin descriptor, language contract, and optional panel help                   |
@@ -86,9 +87,10 @@ results; exception-to-text conversion is restricted to UI/task completion bounda
 ## Portability boundary
 
 Domain models, dictionary parsing contracts, worker ownership, and download contracts do not use
-terminal APIs. Native library loading and audio process execution still contain POSIX adapters; this
-separation does not imply that the entire application already builds on Windows. Those adapters
-require platform-specific implementations and platform CI before making that claim.
+terminal APIs. `pawingo.native` owns native libraries and provides POSIX and Windows process
+adapters. Cancellation terminates an owned process group (POSIX) or Job Object (Windows), then waits
+before returning. Configured release targets still require their own hosted CI validation before
+claiming a working Windows/macOS release.
 
 ## Embedded Japanese voice resources
 
@@ -293,5 +295,5 @@ packaging first creates the plugin artifact and its checksum-pinned catalog, the
 host to embed that exact catalog. This avoids a checksum cycle between the host binary and its own
 embedded metadata. The compatibility identity is compiled into both native descriptors and package
 metadata. The download panel uses one cancellable worker and asks the UI-owned Store for service
-policy before starting network work. Installation never invokes dlopen; registered entries are
+policy before starting network work. Installation never loads native code; registered entries are
 validated and loaded on the next startup. See [release and package contracts](releases.md).

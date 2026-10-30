@@ -41,7 +41,7 @@ public:
   virtual std::string panel_help(const std::string &id) const = 0;
 };
 
-/// The entry point returns a descriptor that remains valid until dlclose.
+/// The entry point returns a descriptor that remains valid until the native library is unloaded.
 /// Its ABI fields are checked before invoking the create function. Loading the
 /// library and calling its entry point can already execute plugin code.
 struct PluginDescriptor {

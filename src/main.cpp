@@ -57,7 +57,11 @@ std::filesystem::path data_dir() {
 
 std::string date_key(std::time_t value) {
   std::tm local{};
+#ifdef _WIN32
+  localtime_s(&local, &value);
+#else
   localtime_r(&value, &local);
+#endif
   char date[11];
   std::strftime(date, sizeof(date), "%Y-%m-%d", &local);
   return date;
@@ -78,7 +82,11 @@ ftxui::Element activity(pawingo::Store &store) {
   const int weeks = defaults.integer("activity.weeks", 1, 52);
   const auto now = std::time(nullptr);
   std::tm today{};
+#ifdef _WIN32
+  localtime_s(&today, &now);
+#else
   localtime_r(&now, &today);
+#endif
   today.tm_hour = 12;
   today.tm_min = 0;
   today.tm_sec = 0;

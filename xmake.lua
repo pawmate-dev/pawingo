@@ -4,13 +4,18 @@ set_version(pawingo_version)
 set_languages("cxx26")
 set_policy("build.c++.modules", true)
 add_rules("mode.debug", "mode.release")
-add_requires("ftxui 6.1.9")
+if is_plat("windows") then
+  add_cxflags("/utf-8")
+  add_defines("NOMINMAX")
+end
+add_requires("ftxui 6.1.9", {system = false})
+add_requires("sqlite3")
 add_requires("sqlite_orm v1.9.1")
 add_requires("expat 2.7.3", "zlib 1.3.1")
 add_requires("libcurl >=8.0", "picosha2 2022.08.08")
 add_requires("miniaudio 0.11.25", "nlohmann_json 3.12.0")
 add_requires("libarchive")
-add_requires("yaml-cpp >=0.8")
+add_requires("yaml-cpp >=0.8", {system = false})
 
 
 -- Embed the maintained SQL files so installed binaries do not need a working directory.
@@ -106,6 +111,7 @@ target("pawingo-fsrs")
           changed=target:is_rebuilt() or not os.isfile(target:targetfile())})
   end)
   if is_plat("linux") then add_syslinks("pthread", "dl", "m", {public = true}) end
+  if is_plat("macosx") then add_syslinks("iconv", "resolv", {public = true}) end
   if is_plat("windows") then add_syslinks("advapi32", "bcrypt", "ntdll", "userenv", "ws2_32", {public = true}) end
 
 -- Shared module interfaces/BMIs are compiled once, then propagated through target dependencies.
@@ -125,9 +131,10 @@ target("pawingo-runtime")
     target:add("defines", 'PAWINGO_BUILD_MODE="' .. (config.get("mode") or "release") .. '"', {public=true})
   end)
   add_files("modules/*.cppm", {public = true})
-  add_files("src/settings.cpp", "src/ui/input.cpp", "src/ui/activity.cpp", "src/learning/activity.cpp", "src/io/diagnostics.cpp", "src/review/scheduler.cpp", "src/review/panel.cpp", "src/download.cpp", "src/storage/store.cpp", "src/plugins/registry.cpp", "src/plugins/packages.cpp", "src/plugins/package_panel.cpp", "src/learning/search.cpp")
-  add_packages("ftxui", "yaml-cpp", "sqlite_orm", "libcurl", "picosha2", "libarchive", {public = true})
-  add_syslinks("sqlite3", "dl", "pthread", "m", {public = true})
+  add_files("src/settings.cpp", "src/ui/input.cpp", "src/ui/activity.cpp", "src/learning/activity.cpp", "src/io/diagnostics.cpp", "src/io/native.cpp", "src/review/scheduler.cpp", "src/review/panel.cpp", "src/download.cpp", "src/storage/store.cpp", "src/plugins/registry.cpp", "src/plugins/packages.cpp", "src/plugins/package_panel.cpp", "src/learning/search.cpp")
+  add_packages("ftxui", "yaml-cpp", "sqlite3", "sqlite_orm", "libcurl", "picosha2", "libarchive", {public = true})
+  if is_plat("linux") then add_syslinks("dl", "pthread", "m", {public = true}) end
+
   if is_plat("linux", "macosx") then add_cxflags("-fPIC") end
 
 target("japanese-backend")
@@ -175,7 +182,19 @@ target("voicevox-test-runtime")
   add_includedirs("third_party/voicevox")
   set_symbols("debug")
 
-for _, spec in ipairs({
+target("pawingo-test-support")
+  set_kind("static")
+  set_default(false)
+  add_files("tests/fixtures/platform.cppm", {public = true})
+
+target("test-process")
+  set_kind("binary")
+  set_default(false)
+  set_basename("espeak-ng")
+  add_files("tests/fixtures/process.cpp")
+
+local test_specs = {
+  {"native-tests", "tests/native.cpp", "process"},
   {"pawingo-tests", "tests/core.cpp", "core"},
   {"japanese-tests", "tests/japanese.cpp", "native"},
   {"japanese-dictionary-tests", "tests/japanese_dictionary.cpp", "backend"},
@@ -192,15 +211,17 @@ for _, spec in ipairs({
   {"voicevox-tests", "tests/voicevox.cpp", "backend"},
   {"voicevox-install-tests", "tests/voicevox_install.cpp", "backend"},
   {"settings-tests", "tests/settings.cpp", "runtime"}
-}) do
+}
+for _, spec in ipairs(test_specs) do
   target(spec[1])
     set_kind("binary")
     set_default(false)
     add_files(spec[2])
-    add_deps("pawingo-runtime")
+    add_deps("pawingo-runtime", "pawingo-test-support")
     if spec[3] == "backend" then add_deps("japanese-backend") end
     if spec[3] == "core" then add_deps("test-plugin", {inherit = false}) end
-    if spec[3] == "native" then add_deps("japanese", {inherit = false}) end
+    if spec[3] == "process" then add_deps("test-process", {inherit = false}) end
+    if spec[3] == "native" then add_deps("japanese", "test-process", {inherit = false}) end
     if spec[1] == "voicevox-tests" then add_deps("voicevox-test-runtime", {inherit = false}) end
 end
 
@@ -236,4 +257,50 @@ task("check-modules")
     assert(#os.files("include/pawingo/**.hpp") == 0, "Project public APIs belong in named modules")
     assert(#os.files("plugins/japanese/*.hpp") == 0, "Japanese interfaces belong in named modules")
     print("Module boundaries verified for %d source files", #files)
+  end)
+
+-- Resolve actual target filenames instead of assuming ELF suffixes or a particular architecture.
+task("test-suite")
+  set_menu {usage = "xmake test-suite", description = "Build and run native integration tests", options = {}}
+  on_run(function ()
+    import("core.project.config")
+    config.load()
+    import("core.project.project")
+    local targets = {}
+    for _, spec in ipairs(test_specs) do table.insert(targets, spec[1]) end
+    local build_args = {"build"}
+    for _, name in ipairs(targets) do table.insert(build_args, name) end
+    os.vrunv(os.programfile(), build_args)
+    local function file(name) return path.absolute(project.target(name):targetfile()) end
+    local fixture = path.join(os.projectdir(), "tests", "fixtures", "jmdict.xml")
+    local args = {
+      ["native-tests"] = {file("test-process")},
+      ["pawingo-tests"] = {file("test-plugin")},
+      ["japanese-tests"] = {file("japanese"), fixture, file("test-process")},
+      ["japanese-dictionary-tests"] = {fixture},
+      ["japanese-search-tests"] = {fixture},
+      ["japanese-review-tests"] = {os.projectdir()},
+      ["package-tests"] = {file("test-plugin")},
+      ["voicevox-tests"] = {file("voicevox-test-runtime")}
+    }
+    for _, spec in ipairs(test_specs) do
+      local run_args = {"run", spec[1]}
+      for _, arg in ipairs(args[spec[1]] or {}) do table.insert(run_args, arg) end
+      os.vrunv(os.programfile(), run_args)
+      print("%s passed", spec[1])
+    end
+  end)
+
+task("release-paths")
+  set_menu {usage = "xmake release-paths", description = "Write native release input paths", options = {}}
+  on_run(function ()
+    import("core.project.config")
+    config.load()
+    import("core.project.project")
+    import("core.base.json")
+    os.mkdir("build")
+    json.savefile("build/release-paths.json", {
+      binary = path.absolute(project.target("pawingo"):targetfile()),
+      library = path.absolute(project.target("japanese"):targetfile())
+    })
   end)

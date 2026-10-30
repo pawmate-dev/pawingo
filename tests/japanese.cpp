@@ -1,14 +1,13 @@
-#include <dlfcn.h>
 #include <ftxui/component/event.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/screen.hpp>
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 import std;
+import pawingo.tests.platform;
 import pawingo.io;
 import pawingo.plugin;
+import pawingo.plugins;
 import pawingo.ui;
 import pawingo.review_ui;
 
@@ -46,18 +45,14 @@ void require(bool condition, const char *message) {
 
 int main(int argc, char **argv) {
   try {
-    require(argc == 3, "plugin and dictionary fixture paths required");
+    require(argc == 4, "plugin and dictionary fixture paths required");
     pawingo::io::TemporaryArtifact isolated(std::filesystem::temp_directory_path());
     const auto isolated_root = isolated.file().parent_path();
-    setenv("XDG_CONFIG_HOME", isolated_root.c_str(), 1);
-    setenv("XDG_DATA_HOME", isolated_root.c_str(), 1);
-    void *lib = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
-    if (!lib)
-      throw std::runtime_error(dlerror());
-    auto entry = reinterpret_cast<pawingo::PluginEntry>(dlsym(lib, pawingo::plugin_entry_symbol));
-    require(entry != nullptr, "entry point");
-    const auto *descriptor = entry();
-    auto *plugin = descriptor->create();
+    pawingo::tests::environment("XDG_CONFIG_HOME", isolated_root.string());
+    pawingo::tests::environment("XDG_DATA_HOME", isolated_root.string());
+    pawingo::Plugins registry;
+    registry.load(argv[1]);
+    auto *plugin = registry.languages().front();
     Host host;
     {
       auto panel = plugin->create_panel("五十音図", host);
@@ -166,20 +161,20 @@ int main(int argc, char **argv) {
           file.PixelAt(file_cursor.x, file_cursor.y).character == "/",
         "local dictionary import anchors the empty file input");
     }
-    char temporary[] = "/tmp/pawingo-japanese-test-XXXXXX";
-    require(mkdtemp(temporary) != nullptr, "temporary resources");
-    const std::filesystem::path directory(temporary);
+    pawingo::io::TemporaryArtifact temporary(std::filesystem::temp_directory_path());
+    const auto directory = temporary.file().parent_path();
     const std::string original_path = std::getenv("PATH") ? std::getenv("PATH") : "";
     const char *data = std::getenv("XDG_DATA_HOME");
     const bool had_data = data != nullptr;
     const std::string original_data = data ? data : "";
-    {
-      std::ofstream script(directory / "espeak-ng");
-      script << "#!/bin/sh\nsleep 3\n";
-    }
-    chmod((directory / "espeak-ng").c_str(), 0700);
-    setenv("PATH", (directory.string() + ":" + original_path).c_str(), 1);
-    setenv("XDG_DATA_HOME", directory.c_str(), 1);
+    const auto helper = directory / std::filesystem::path(argv[3]).filename();
+    std::filesystem::copy_file(argv[3], helper);
+    std::filesystem::permissions(helper,
+      std::filesystem::perms::owner_exec | std::filesystem::perms::owner_read |
+        std::filesystem::perms::owner_write);
+    pawingo::tests::environment("PATH",
+      directory.string() + pawingo::tests::path_separator + original_path);
+    pawingo::tests::environment("XDG_DATA_HOME", directory.string());
     {
       auto panel = plugin->create_panel("五十音図", host);
       const auto started = std::chrono::steady_clock::now();
@@ -226,7 +221,7 @@ int main(int argc, char **argv) {
     const char *old_dictionary = std::getenv("PAWINGO_JMDICT");
     const bool had_dictionary = old_dictionary != nullptr;
     const std::string previous_dictionary = old_dictionary ? old_dictionary : "";
-    setenv("PAWINGO_JMDICT", argv[2], 1);
+    pawingo::tests::environment("PAWINGO_JMDICT", argv[2]);
     auto backend = plugin->search("猫", "en");
     require(backend.size() == 2 && backend[0].expression == "猫", "backend vocabulary search");
     require(
@@ -345,17 +340,15 @@ int main(int argc, char **argv) {
       require(!panel->OnEvent(ftxui::Event::Escape), "search delegates back navigation to host");
     }
     if (had_dictionary)
-      setenv("PAWINGO_JMDICT", previous_dictionary.c_str(), 1);
+      pawingo::tests::environment("PAWINGO_JMDICT", previous_dictionary);
     else
-      unsetenv("PAWINGO_JMDICT");
-    setenv("PATH", original_path.c_str(), 1);
+      pawingo::tests::unset_environment("PAWINGO_JMDICT");
+    pawingo::tests::environment("PATH", original_path);
     if (had_data)
-      setenv("XDG_DATA_HOME", original_data.c_str(), 1);
+      pawingo::tests::environment("XDG_DATA_HOME", original_data);
     else
-      unsetenv("XDG_DATA_HOME");
+      pawingo::tests::unset_environment("XDG_DATA_HOME");
     std::filesystem::remove_all(directory);
-    descriptor->destroy(plugin);
-    dlclose(lib);
   } catch (const std::exception &e) {
     std::cerr << e.what() << '\n';
     return 1;

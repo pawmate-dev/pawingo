@@ -21,7 +21,7 @@ Vocabulary word() {
 
 void sql(const std::filesystem::path &path, const char *statement) {
   sqlite3 *db = nullptr;
-  require(sqlite3_open(path.c_str(), &db) == SQLITE_OK, "open fault-injection database");
+  require(sqlite3_open(path.string().c_str(), &db) == SQLITE_OK, "open fault-injection database");
   const auto result = sqlite3_exec(db, statement, nullptr, nullptr, nullptr);
   const std::string error = sqlite3_errmsg(db);
   sqlite3_close(db);

@@ -1,4 +1,4 @@
-"""Build checksum-pinned Linux release archives without third-party Python dependencies.
+"""Build checksum-pinned native release archives without third-party Python dependencies.
 
 Run the plugin phase first, rebuild only the host with PAWINGO_CATALOG_SOURCE pointing
 at its generated catalog, then run the core phase. Nothing is uploaded by this tool.
@@ -13,11 +13,36 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 from pathlib import Path
 from typing import Any
 
+# Support both the CLI entry point and unittest imports from the repository root.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tools.release_native import bundle_macho, bundle_pe
+
 PROJECT = Path(__file__).resolve().parents[1]
+SUPPORTED_PLATFORMS = {
+    "linux-x86_64-gnu",
+    "linux-aarch64-gnu",
+    "windows-x86_64",
+    "windows-aarch64",
+    "macos-x86_64",
+    "macos-aarch64",
+}
+
+
+def native_names(platform: str) -> tuple[str, str]:
+    """Return the host basename and plugin entry for a compiled platform identity."""
+    if platform.startswith("windows-"):
+        return "pawingo.exe", "lib/japanese.dll"
+    if platform.startswith("macos-"):
+        return "pawingo", "lib/libjapanese.dylib"
+    return "pawingo", "lib/libjapanese.so"
+
+
 SYSTEM_LIBRARIES = re.compile(r"^(?:ld-linux.*|lib(?:c|m|pthread|dl|rt|resolv|util|anl)\.so(?:\..*)?)$")
 
 
@@ -40,8 +65,8 @@ def write_yaml(path: Path, value: object) -> None:
 def info(binary: Path, allow_development: bool) -> dict[str, Any]:
     """Read the compiled identity; refuse accidental publication of development builds."""
     metadata: dict[str, Any] = json.loads(run([str(binary), "--build-info"]))
-    if metadata["platform"] != "linux-x86_64-gnu":
-        raise ValueError("Release packaging currently supports Linux x86_64 GNU builds.")
+    if metadata["platform"] not in SUPPORTED_PLATFORMS:
+        raise ValueError("Unsupported release platform: " + metadata["platform"])
     if metadata["release_build"] == "development" and not allow_development:
         raise ValueError("Set PAWINGO_RELEASE_BUILD before building a release.")
     return metadata
@@ -74,7 +99,7 @@ def copy_notices(destination: Path, libraries: dict[str, Path]) -> None:
                 shutil.copy2(source, destination / f"{package}-{source.name}")
 
 
-def bundle(source: Path, destination: Path, root: Path) -> None:
+def bundle_elf(source: Path, destination: Path, root: Path) -> None:
     """Copy a trusted ELF and its dynamic dependency closure, replacing absolute RPATHs.
 
     Glibc and the loader remain system requirements. Dependencies are copied as regular
@@ -107,8 +132,30 @@ def bundle(source: Path, destination: Path, root: Path) -> None:
     write_yaml(
         root / "dependencies.yaml",
         {
-            "system": {"libc": os.confstr("CS_GNU_LIBC_VERSION"), "platform": "linux-x86_64-gnu"},
+            "system": {"libc": os.confstr("CS_GNU_LIBC_VERSION"), "platform": sys.platform},
             "bundled": [{"soname": name, "sha256": checksum(library_dir / name)} for name in sorted(libraries)],
+        },
+    )
+    copy_notices(root / "licenses", libraries)
+
+
+def bundle(source: Path, destination: Path, root: Path) -> None:
+    """Select the native relocation adapter; every adapter rejects unresolved dependencies."""
+    if sys.platform.startswith("linux"):
+        bundle_elf(source, destination, root)
+        return
+    libraries = (bundle_pe if sys.platform == "win32" else bundle_macho)(source, destination, root)
+    write_yaml(
+        root / "dependencies.yaml",
+        {
+            "system": {"platform": sys.platform},
+            "bundled": [
+                {
+                    "name": name,
+                    "sha256": checksum((destination.parent if sys.platform == "win32" else root / "lib") / name),
+                }
+                for name in sorted(libraries)
+            ],
         },
     )
     copy_notices(root / "licenses", libraries)
@@ -142,7 +189,8 @@ def package_plugin(options: argparse.Namespace, metadata: dict[str, Any]) -> Non
     if root.exists():
         shutil.rmtree(root)
     root.mkdir(parents=True)
-    bundle(options.library, root / "lib/libjapanese.so", root)
+    _, entry = native_names(metadata["platform"])
+    bundle(options.library, root / entry, root)
     manifest = {
         "schema": 1,
         **plugin,
@@ -150,7 +198,7 @@ def package_plugin(options: argparse.Namespace, metadata: dict[str, Any]) -> Non
         "plugin_api": 1,
         "platform": metadata["platform"],
         "abi": metadata["abi"],
-        "entry": "lib/libjapanese.so",
+        "entry": entry,
     }
     write_yaml(root / "plugin.yaml", manifest)
     filename = f"pawingo-japanese-{plugin['version']}-{metadata['platform']}.tar.gz"
@@ -189,19 +237,21 @@ def package_core(options: argparse.Namespace, metadata: dict[str, Any]) -> None:
     if root.exists():
         shutil.rmtree(root)
     root.mkdir(parents=True)
-    bundle(options.binary, root / "bin/pawingo", root)
+    binary_name, entry = native_names(metadata["platform"])
+    host = root / "bin" / binary_name
+    bundle(options.binary, host, root)
     write_yaml(root / "build-info.yaml", metadata)
     target = options.output / f"pawingo-{metadata['version']}-{metadata['platform']}.tar.gz"
     archive(root, target)
     # Run the relocated host and load the actual packaged native library before release upload.
-    relocated = info(root / "bin/pawingo", options.allow_development)
+    relocated = info(host, options.allow_development)
     if relocated["abi"] != metadata["abi"]:
         raise ValueError("Relocated host changed build identity.")
-    run([str(root / "bin/pawingo"), "--check-plugin", str(options.output / "plugin-stage/lib/libjapanese.so")])
+    run([str(host), "--check-plugin", str(options.output / "plugin-stage" / entry)])
     plugin_archive = options.output / artifact["url"].rsplit("/", 1)[-1]
     if plugin_archive.stat().st_size != artifact["size_bytes"] or checksum(plugin_archive) != artifact["sha256"]:
         raise ValueError("The plugin archive no longer matches the generated catalog.")
-    # Keep unrelated archives from older local test builds out of the release manifest.
+    # The upload manifest contains only artifacts produced and verified by this invocation.
     outputs = [target, plugin_archive, options.output / "plugins-v1.yaml"]
     (options.output / "SHA256SUMS").write_text(
         "".join(f"{checksum(path)}  {path.name}\n" for path in outputs), encoding="utf-8"
@@ -213,8 +263,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("phase", choices=["plugin", "core"])
     parser.add_argument("--output", type=Path, default=PROJECT / "build/release")
-    parser.add_argument("--binary", type=Path, default=PROJECT / "build/linux/x86_64/release/pawingo")
-    parser.add_argument("--library", type=Path, default=PROJECT / "build/plugins/libjapanese.so")
+    parser.add_argument("--binary", type=Path, default=None)
+    parser.add_argument("--library", type=Path, default=None)
     parser.add_argument("--repo", default="pawmate-dev/pawingo")
     parser.add_argument("--tag", required=True)
     parser.add_argument(
@@ -222,6 +272,10 @@ def main() -> None:
     )
     options = parser.parse_args()
     options.output = options.output.resolve()
+    if options.binary is None or options.library is None:
+        paths = json.loads((PROJECT / "build/release-paths.json").read_text(encoding="utf-8"))
+        options.binary = options.binary or Path(paths["binary"])
+        options.library = options.library or Path(paths["library"])
     options.binary = options.binary.resolve()
     options.library = options.library.resolve()
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", options.repo):

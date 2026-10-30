@@ -16,23 +16,7 @@ check-modules:
 test: check-modules
     python -m unittest discover -s tests -p test_release.py
     cargo test --manifest-path native/fsrs/Cargo.toml --target-dir build/fsrs --locked
-    xmake build pawingo-tests japanese-tests japanese-dictionary-tests japanese-examples-tests japanese-search-tests japanese-review-tests download-tests background-job-tests diagnostics-tests review-tests study-tests activity-tests package-tests voicevox-tests voicevox-install-tests settings-tests
-    xmake run pawingo-tests "$(pwd)/build/test-plugins/libtest-plugin.so"
-    xmake run japanese-tests "$(pwd)/build/plugins/libjapanese.so" "$(pwd)/tests/fixtures/jmdict.xml"
-    xmake run japanese-dictionary-tests "$(pwd)/tests/fixtures/jmdict.xml"
-    xmake run japanese-examples-tests
-    xmake run japanese-search-tests "$(pwd)/tests/fixtures/jmdict.xml"
-    xmake run japanese-review-tests "$(pwd)"
-    xmake run download-tests
-    xmake run background-job-tests
-    xmake run diagnostics-tests
-    xmake run review-tests
-    xmake run study-tests
-    xmake run activity-tests
-    xmake run package-tests "$(pwd)/build/test-plugins/libtest-plugin.so"
-    xmake run voicevox-tests "$(pwd)/build/test-plugins/libvoicevox-test-runtime.so"
-    xmake run voicevox-install-tests
-    xmake run settings-tests
+    xmake test-suite
 
 clean:
     xmake clean
@@ -46,6 +30,7 @@ fmt:
 release tag:
     PAWINGO_CATALOG_SOURCE=resources/plugins.yaml just build
     just test
+    xmake release-paths
     python tools/release.py plugin --tag "$1"
     PAWINGO_CATALOG_SOURCE=build/release/plugins-v1.yaml xmake build pawingo
     python tools/release.py core --tag "$1"

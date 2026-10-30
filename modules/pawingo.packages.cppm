@@ -80,7 +80,8 @@ public:
   /// Downloads and validates a catalog before replacing the cache. Stops before the commit point.
   std::expected<void, Error> refresh(std::stop_token = {});
   /// Downloads the selected compatible artifact, verifies size/SHA-256, extracts without links or
-  /// traversal, validates package metadata, then atomically records activation. Never dlopens it.
+  /// traversal, validates package metadata, then atomically records activation. Never loads native
+  /// code.
   std::expected<void, Error> install(const Offer &, std::stop_token = {});
   /// Same verification/activation path for a previously downloaded artifact. Source is not changed.
   std::expected<void, Error>
