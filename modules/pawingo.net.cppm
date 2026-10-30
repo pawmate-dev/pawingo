@@ -31,7 +31,9 @@ struct DownloadError {
 struct DownloadRequest {
   std::string url;
   std::filesystem::path destination;
-  std::size_t max_bytes = config::application().integer("network.download_bytes", 1, 1073741824);
+  std::size_t max_bytes = static_cast<std::size_t>(
+    config::application().integer("network.download_bytes", 1, 1073741824)
+  );
   std::chrono::seconds timeout{config::application().integer("network.timeout_seconds", 1, 3600)};
   /// Optional lowercase hexadecimal SHA-256 expected for a pinned artifact.
   std::string expected_sha256;
