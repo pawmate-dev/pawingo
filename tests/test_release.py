@@ -31,12 +31,17 @@ class ReleasePackagingTests(unittest.TestCase):
             def fake_run(arguments: list[str]) -> str:
                 if arguments[0] == "ldd":
                     return (
-                        f"libhelper.so.1 => {library} (0x1)\n"
+                        "libhelper.so.1 => /fixture/libhelper.so.1 (0x1)\n"
                         "/lib64/ld-linux-x86-64.so.2 => /usr/lib/ld-linux-x86-64.so.2 (0x2)"
                     )
                 return ""
 
+            def fixture_path(value: str) -> Path:
+                # ldd describes POSIX paths even when the fixture runs on Windows.
+                return library if value == "/fixture/libhelper.so.1" else Path(value)
+
             with (
+                patch("tools.release.Path", side_effect=fixture_path),
                 patch("tools.release.run", side_effect=fake_run),
                 patch("tools.release.copy_notices"),
                 patch("tools.release.os.confstr", return_value="glibc fixture", create=True),
