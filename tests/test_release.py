@@ -11,6 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from tools.linux_smoke import unpack, verify_checksums
 from tools.release import bundle_elf, checksum, info, native_names, package_core, run, write_yaml
 from tools.release_collect import collect
 from tools.release_native import bundle_macho, bundle_pe, pe_imports
@@ -18,6 +19,39 @@ from tools.release_native import bundle_macho, bundle_pe, pe_imports
 
 class ReleasePackagingTests(unittest.TestCase):
     """Ensure dependency discovery cannot write outside the staged package."""
+
+    def test_runtime_smoke_rejects_archive_links_and_traversal(self) -> None:
+        """A downloaded package cannot escape its isolated runtime staging directory."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name, kind in [("../escape", tarfile.REGTYPE), ("link", tarfile.SYMTYPE)]:
+                archive = root / "unsafe.tar.gz"
+                with tarfile.open(archive, "w:gz") as output:
+                    member = tarfile.TarInfo(name)
+                    member.type = kind
+                    member.linkname = "/outside"
+                    output.addfile(member)
+                with self.assertRaisesRegex(ValueError, "Unsafe archive member"):
+                    unpack(archive, root / "stage")
+            self.assertFalse((root / "escape").exists())
+
+    def test_runtime_smoke_requires_checksums_for_both_archives_and_catalog(self) -> None:
+        """An empty or incomplete manifest cannot bypass validation before execution."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "SHA256SUMS").write_text("", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "must cover exactly"):
+                verify_checksums(root)
+            names = ["core.tar.gz", "plugin.tar.gz", "plugins-v1.yaml"]
+            for name in names:
+                (root / name).write_bytes(b"original")
+            (root / "SHA256SUMS").write_text(
+                "".join(f"{checksum(root / name)}  {name}\n" for name in names), encoding="utf-8"
+            )
+            verify_checksums(root)
+            (root / "plugin.tar.gz").write_bytes(b"corrupt")
+            with self.assertRaisesRegex(ValueError, "Checksum mismatch: plugin.tar.gz"):
+                verify_checksums(root)
 
     def test_build_info_stdout_is_utf8_under_a_legacy_windows_locale(self) -> None:
         """Native JSON uses UTF-8 even when Python defaults to a legacy Windows code page."""

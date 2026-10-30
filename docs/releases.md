@@ -47,7 +47,7 @@ relative to each file; it copies dependency SONAMEs as regular files so packages
 Dictionaries, sentence corpora, VOICEVOX runtimes and voice models remain independent user-managed
 resources.
 
-The native matrix uses Ubuntu 24.04 (x86_64/ARM64), Windows 2025 (x86_64), Windows 11 ARM64, macOS
+The native matrix uses Ubuntu 22.04 (x86_64/ARM64), Windows 2025 (x86_64), Windows 11 ARM64, macOS
 15 Intel and macOS 15 Apple Silicon. Ubuntu uses LLVM 22 with matching libc++; Windows uses MSVC and
 its standard-library modules. macOS Intel uses the runner's available LLVM 18, while Apple Silicon
 uses Homebrew LLVM 22. These compiler/standard-library combinations still require successful hosted
@@ -60,6 +60,38 @@ the modified images. Ad-hoc signing is not Apple Developer ID signing or notariz
 packages bundle architecture-matching imported and delay-loaded DLL dependencies beside their owning
 executable or plugin; operating-system DLLs remain system requirements. All platforms use `.tar.gz`,
 supported by the shared libarchive installer. Windows runs `bin/pawingo.exe`.
+
+### Linux distribution compatibility
+
+Linux release builds use Ubuntu 22.04 with LLVM 22 and matching libc++, targeting a glibc 2.35
+baseline. This is a build baseline, not a claim that every Linux distribution is supported. Alpine
+and other musl environments require a separate target and are not covered by the GNU packages.
+
+After native packaging, CI runs the same unchanged archives inside minimal distribution containers:
+
+| Distribution         | x86_64 | ARM64             |
+| -------------------- | ------ | ----------------- |
+| Ubuntu 22.04 / 24.04 | Yes    | Yes               |
+| Debian 12 / 13       | Yes    | Yes               |
+| Fedora 44            | Yes    | Yes               |
+| Arch Linux (rolling) | Yes    | No official image |
+
+Each test verifies the checksums, relocates the archives into paths with spaces, loads the native
+plugin, installs it offline and discovers it after restarting the host. A real pseudo-terminal
+exercises search, word details, vocabulary saving, Escape navigation and alternate-screen cleanup at
+80×24 and 120×40. The second launch reuses the same database; its saved word and SQLite integrity
+are checked afterward. Containers have no network during the test, a read-only root filesystem and
+no mounted development toolchain or source-tree resources. Only the smoke script, synthetic
+dictionary fixture and release artifacts are mounted. Python and CA certificates are installed
+before the test; application libraries must be supplied by the archives.
+
+These checks cover user-space compatibility on the hosted runner's kernel. They do not certify
+distribution-specific audio servers, GPU drivers, input methods or VOICEVOX models. Rolling image
+tags deliberately test current distribution updates; the CI logs identify the image digest.
+
+To validate only Linux builds and the distribution matrix, dispatch `release.yaml` with
+`platform=linux`. This uploads native artifacts without creating a Release. Full release drafts
+require both the native builds and all Linux runtime checks to pass.
 
 The Nix flake remains a development shell; exporting a Nix closure is a separate distribution path.
 Supplied third-party notices and available distro/source notices are copied into each archive;
