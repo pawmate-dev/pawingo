@@ -114,7 +114,7 @@ void extract_voicevox_archive(const std::filesystem::path &file,
     std::filesystem::path relative(name);
     if (relative.is_absolute())
       throw std::runtime_error("Absolute archive path.");
-    for (auto &part : relative)
+    for (const auto &part : relative)
       if (part == "..")
         throw std::runtime_error("Archive path traversal.");
     if (archive_entry_symlink(entry) || archive_entry_hardlink(entry)) {

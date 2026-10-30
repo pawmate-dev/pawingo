@@ -95,6 +95,13 @@ jobs:
           brew install "$LLVM_FORMULA" cmake ninja pkgconf
           echo "$(brew --prefix "$LLVM_FORMULA")/bin" >> "$GITHUB_PATH"
           echo "PAWINGO_LLVM_PREFIX=$(brew --prefix "$LLVM_FORMULA")" >> "$GITHUB_ENV"
+      - name: Keep native Windows host detection inside Git Bash
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $bootstrap = Join-Path $env:RUNNER_TEMP 'pawingo-native-bash.sh'
+          'unset MSYSTEM' | Set-Content -Encoding utf8NoBOM $bootstrap
+          "BASH_ENV=$bootstrap" >> $env:GITHUB_ENV
       - name: Configure Windows
         if: runner.os == 'Windows'
         run:
