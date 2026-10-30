@@ -131,10 +131,15 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           just --shell pwsh --clear-shell-args --shell-arg=-NoProfile --shell-arg=-Command build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           just --shell pwsh --clear-shell-args --shell-arg=-NoProfile --shell-arg=-Command test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           uvx ruff check tools tests/test_release.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           uvx ruff format --check tools tests/test_release.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           xmake release-paths
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build and verify
         if: runner.os != 'Windows'
         run: |

@@ -1,4 +1,10 @@
 module;
+// Cross-library dynamic_cast requires visible type information, including named-module types.
+#if defined(__clang__) && !defined(_WIN32)
+#define PAWINGO_INTERFACE __attribute__((type_visibility("default")))
+#else
+#define PAWINGO_INTERFACE
+#endif
 #include <ftxui/component/component.hpp>
 
 export module pawingo.plugin;
@@ -13,7 +19,7 @@ inline constexpr std::uint32_t plugin_api_version = 1;
 inline constexpr const char *plugin_entry_symbol = "pawingo_plugin_v1";
 
 /// Language-specific capabilities exposed through the native plugin boundary.
-class LanguagePlugin {
+class PAWINGO_INTERFACE LanguagePlugin {
 public:
   virtual ~LanguagePlugin() = default;
   /// Returns the language's display name.
@@ -34,7 +40,7 @@ public:
 
 /// Optional extension: the host places panel shortcuts in its screen footer.
 /// Keeping this separate preserves the existing LanguagePlugin vtable.
-class PanelHelpProvider {
+class PAWINGO_INTERFACE PanelHelpProvider {
 public:
   virtual ~PanelHelpProvider() = default;
   /// Returns the complete footer, including current Escape behavior, without changing panel state.

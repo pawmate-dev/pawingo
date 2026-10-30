@@ -1,4 +1,10 @@
 module;
+// Cross-library dynamic_cast requires visible type information, including named-module types.
+#if defined(__clang__) && !defined(_WIN32)
+#define PAWINGO_INTERFACE __attribute__((type_visibility("default")))
+#else
+#define PAWINGO_INTERFACE
+#endif
 #include <ftxui/component/component.hpp>
 
 export module pawingo.review_ui;
@@ -51,7 +57,7 @@ ReviewPanel review_panel(Store &,
 
 /// Optional host capability for plugin-owned review panels, without exposing the database.
 /// This separate interface leaves the native Host and LanguagePlugin vtables unchanged.
-class ReviewProvider {
+class PAWINGO_INTERFACE ReviewProvider {
 public:
   virtual ~ReviewProvider() = default;
   /// Creates a language-scoped session; the plugin supplies its answer matcher.

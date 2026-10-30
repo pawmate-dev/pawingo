@@ -133,7 +133,10 @@ target("pawingo-runtime")
   add_files("modules/*.cppm", {public = true})
   add_files("src/settings.cpp", "src/ui/input.cpp", "src/ui/activity.cpp", "src/learning/activity.cpp", "src/io/diagnostics.cpp", "src/io/native.cpp", "src/review/scheduler.cpp", "src/review/panel.cpp", "src/download.cpp", "src/storage/store.cpp", "src/plugins/registry.cpp", "src/plugins/packages.cpp", "src/plugins/package_panel.cpp", "src/learning/search.cpp")
   add_packages("ftxui", "yaml-cpp", "sqlite3", "sqlite_orm", "libcurl", "picosha2", "libarchive", {public = true})
-  if is_plat("linux") then add_syslinks("dl", "pthread", "m", {public = true}) end
+  if is_plat("linux") then
+    add_syslinks("dl", "pthread", "m", {public = true})
+    add_ldflags("-Wl,--export-dynamic", {public = true})
+  end
 
   if is_plat("linux", "macosx") then add_cxflags("-fPIC") end
 

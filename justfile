@@ -1,5 +1,4 @@
 set shell := ["bash", "-cu"]
-set positional-arguments := true
 
 default:
     @just --list
@@ -27,6 +26,7 @@ fmt:
     rg --null --files -g '*.md' -g '!README*' | xargs -0 -r prettier --write --editorconfig --prose-wrap always
 
 # Build the plugin first; only the host embeds the final checksum-pinned catalog.
+[positional-arguments]
 release tag:
     PAWINGO_CATALOG_SOURCE=resources/plugins.yaml just build
     just test
