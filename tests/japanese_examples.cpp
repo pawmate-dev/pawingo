@@ -62,11 +62,14 @@ int main(int argc, char **argv) {
         found->front().translation_language == "ger",
       "missing target translations do not fall back to English");
     const auto pairs = root / "de.tsv";
-    std::ofstream(pairs) << "\xef\xbb\xbf"
-                            "1\t猫がいる。\t201\tEine Katze ist da.\r\n"
-                            "99999\t対象外。\t299\tNicht im Index.\r\n";
+    // Preserve deliberate BOM/CRLF bytes instead of Windows text-mode newline expansion.
+    std::ofstream(pairs, std::ios::binary) << "\xef\xbb\xbf"
+                                              "1\t猫がいる。\t201\tEine Katze ist da.\r\n"
+                                              "99999\t対象外。\t299\tNicht im Index.\r\n";
     auto translated = corpus.install_translations({pairs, "de"});
-    require(translated && *translated == 1, "import target sentence pairs by Japanese sentence ID");
+    if (!translated)
+      throw std::runtime_error("Import target sentence pairs: " + translated.error().message);
+    require(*translated == 1, "import target sentence pairs by Japanese sentence ID");
     found = corpus.find(query);
     require(found && found->front().translation == "Eine Katze ist da." &&
         found->front().translation_id == 201,
