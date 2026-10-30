@@ -247,6 +247,8 @@ task("check-modules")
     end
     local entries = {["src/main.cpp"]=true, ["plugins/japanese/entry.cpp"]=true, ["tests/fixtures/plugin.cpp"]=true}
     for _, file in ipairs(files) do
+      -- Match project-owned boundaries using one separator on every host.
+      file = file:gsub("\\", "/")
       local source = "\n" .. io.readfile(file)
       for header in source:gmatch('#include%s*[<"]([^>"]+)[>"]') do
         assert(not header:find("^pawingo/"), file .. ": project interfaces must use import")
