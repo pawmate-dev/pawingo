@@ -36,10 +36,12 @@ jobs:
             platform: windows-x86_64
             arch: x64
             msvc_arch: x64
+            shell: pwsh
           - runner: windows-11-arm
             platform: windows-aarch64
             arch: arm64
             msvc_arch: arm64
+            shell: pwsh
           - runner: macos-15-intel
             platform: macos-x86_64
             arch: x86_64
@@ -50,7 +52,7 @@ jobs:
             llvm: llvm@22
     defaults:
       run:
-        shell: bash
+        shell: ${{ matrix.shell || 'bash' }}
     env:
       PAWINGO_RELEASE_BUILD: ${{ github.sha }}
     steps:
@@ -59,6 +61,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Validate release tag
+        shell: bash
         run: |
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
       - uses: actions/setup-python@v6
@@ -95,13 +98,6 @@ jobs:
           brew install "$LLVM_FORMULA" cmake ninja pkgconf
           echo "$(brew --prefix "$LLVM_FORMULA")/bin" >> "$GITHUB_PATH"
           echo "PAWINGO_LLVM_PREFIX=$(brew --prefix "$LLVM_FORMULA")" >> "$GITHUB_ENV"
-      - name: Keep native Windows host detection inside Git Bash
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $bootstrap = Join-Path $env:RUNNER_TEMP 'pawingo-native-bash.sh'
-          'unset MSYSTEM' | Set-Content -Encoding utf8NoBOM $bootstrap
-          "BASH_ENV=$bootstrap" >> $env:GITHUB_ENV
       - name: Configure Windows
         if: runner.os == 'Windows'
         run:
@@ -131,18 +127,41 @@ jobs:
         run: |
           xmake build toolchain-check
           xmake run toolchain-check
+      - name: Build and verify Windows
+        if: runner.os == 'Windows'
+        run: |
+          just --shell pwsh --clear-shell-args --shell-arg=-NoProfile --shell-arg=-Command build
+          just --shell pwsh --clear-shell-args --shell-arg=-NoProfile --shell-arg=-Command test
+          uvx ruff check tools tests/test_release.py
+          uvx ruff format --check tools tests/test_release.py
+          xmake release-paths
       - name: Build and verify
+        if: runner.os != 'Windows'
         run: |
           just build
           just test
           uvx ruff check tools tests/test_release.py
           uvx ruff format --check tools tests/test_release.py
           xmake release-paths
+      - name: Package Windows plugin
+        if: runner.os == 'Windows'
+        run:
+          python tools/release.py plugin --tag $env:RELEASE_TAG --repo
+          $env:GITHUB_REPOSITORY
       - name: Package plugin and embed its native catalog
+        if: runner.os != 'Windows'
         run:
           python tools/release.py plugin --tag "$RELEASE_TAG" --repo
           "$GITHUB_REPOSITORY"
+      - name: Package and smoke-test Windows host and plugin
+        if: runner.os == 'Windows'
+        env:
+          PAWINGO_CATALOG_SOURCE: build/release/plugins-v1.yaml
+        run: |
+          xmake build pawingo
+          python tools/release.py core --tag $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY
       - name: Package and smoke-test relocated host and plugin
+        if: runner.os != 'Windows'
         env:
           PAWINGO_CATALOG_SOURCE: build/release/plugins-v1.yaml
         run: |
