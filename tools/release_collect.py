@@ -90,7 +90,7 @@ def collect(inputs: Path, output: Path, tag: str, build: str, expected: set[str]
     write_yaml(catalog, {"schema": 1, "plugins": [merged]})
     files.append(catalog)
     (output / "SHA256SUMS").write_text(
-        "".join(f"{checksum(file)}  {file.name}\n" for file in sorted(files)), encoding="utf-8"
+        "".join(f"{checksum(file)}  {file.name}\n" for file in sorted(files)), encoding="utf-8", newline="\n"
     )
 
 

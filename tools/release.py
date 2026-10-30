@@ -59,7 +59,8 @@ def checksum(path: Path) -> str:
 
 def write_yaml(path: Path, value: object) -> None:
     """Write generated metadata as JSON, a YAML-compatible deterministic serialization."""
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # Match C++ embedded literal newlines: Windows text translation would change the pinned digest.
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
 def info(binary: Path, allow_development: bool) -> dict[str, Any]:
@@ -254,7 +255,7 @@ def package_core(options: argparse.Namespace, metadata: dict[str, Any]) -> None:
     # The upload manifest contains only artifacts produced and verified by this invocation.
     outputs = [target, plugin_archive, options.output / "plugins-v1.yaml"]
     (options.output / "SHA256SUMS").write_text(
-        "".join(f"{checksum(path)}  {path.name}\n" for path in outputs), encoding="utf-8"
+        "".join(f"{checksum(path)}  {path.name}\n" for path in outputs), encoding="utf-8", newline="\n"
     )
 
 

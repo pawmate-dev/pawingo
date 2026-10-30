@@ -18,6 +18,13 @@ from tools.release_native import bundle_macho, bundle_pe, pe_imports
 class ReleasePackagingTests(unittest.TestCase):
     """Ensure dependency discovery cannot write outside the staged package."""
 
+    def test_generated_metadata_has_portable_utf8_lf_bytes(self) -> None:
+        """The on-disk catalog must match C++ raw literal bytes on every runner."""
+        with tempfile.TemporaryDirectory() as temporary:
+            catalog = Path(temporary) / "plugins-v1.yaml"
+            write_yaml(catalog, {"name": "日本語"})
+            self.assertEqual(catalog.read_bytes(), '{\n  "name": "日本語"\n}\n'.encode())
+
     def test_system_loader_absolute_path_is_never_bundled(self) -> None:
         """A loader entry is a system requirement, including ldd's absolute-name form."""
         with tempfile.TemporaryDirectory() as temporary:
