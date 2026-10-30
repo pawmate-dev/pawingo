@@ -48,7 +48,7 @@ SYSTEM_LIBRARIES = re.compile(r"^(?:ld-linux.*|lib(?:c|m|pthread|dl|rt|resolv|ut
 
 def run(arguments: list[str]) -> str:
     """Run a trusted build tool and return stdout; failures stop packaging."""
-    return subprocess.run(arguments, check=True, text=True, capture_output=True).stdout.strip()
+    return subprocess.run(arguments, check=True, text=True, encoding="utf-8", capture_output=True).stdout.strip()
 
 
 def checksum(path: Path) -> str:

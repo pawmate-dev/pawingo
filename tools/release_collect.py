@@ -75,7 +75,12 @@ def collect(inputs: Path, output: Path, tag: str, build: str, expected: set[str]
         if {key: value for key, value in plugin.items() if key != "artifacts"} != {
             key: value for key, value in merged.items() if key != "artifacts"
         }:
-            raise ValueError("Matrix plugin metadata disagrees.")
+            baseline = {key: value for key, value in merged.items() if key != "artifacts"}
+            candidate = {key: value for key, value in plugin.items() if key != "artifacts"}
+            fields = sorted(
+                key for key in baseline.keys() | candidate.keys() if baseline.get(key) != candidate.get(key)
+            )
+            raise ValueError(f"Matrix plugin metadata disagrees for {sorted(plugin['artifacts'])}: {', '.join(fields)}")
         merged["artifacts"].update(plugin["artifacts"])
     output.mkdir(parents=True, exist_ok=True)
     files = []

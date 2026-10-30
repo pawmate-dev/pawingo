@@ -3,6 +3,7 @@
 import io
 import json
 import struct
+import sys
 import tarfile
 import tempfile
 import unittest
@@ -10,13 +11,21 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from tools.release import bundle_elf, checksum, info, native_names, package_core, write_yaml
+from tools.release import bundle_elf, checksum, info, native_names, package_core, run, write_yaml
 from tools.release_collect import collect
 from tools.release_native import bundle_macho, bundle_pe, pe_imports
 
 
 class ReleasePackagingTests(unittest.TestCase):
     """Ensure dependency discovery cannot write outside the staged package."""
+
+    def test_build_info_stdout_is_utf8_under_a_legacy_windows_locale(self) -> None:
+        """Native JSON uses UTF-8 even when Python defaults to a legacy Windows code page."""
+        with patch("locale.getencoding", return_value="cp1252"):
+            value = run(
+                [sys.executable, "-c", "import sys; sys.stdout.buffer.write(bytes.fromhex('e697a5e69cace8aa9e'))"]
+            )
+        self.assertEqual(value, "日本語")
 
     def test_generated_metadata_has_portable_utf8_lf_bytes(self) -> None:
         """The on-disk catalog must match C++ raw literal bytes on every runner."""
