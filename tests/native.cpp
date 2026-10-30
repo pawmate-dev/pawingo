@@ -13,8 +13,11 @@ int main(int argc, char **argv) {
     auto result = run_process(
       {.arguments = {argv[1], "--arguments", "", "猫", "a\"b", "tail\\", "space value"}}
     );
-    require(result && *result == 0,
-      "native process preserves empty, Unicode, quoted and spaced arguments");
+    if (!result)
+      throw std::runtime_error("Process argument fixture could not run: " + result.error().message);
+    if (*result != 0)
+      throw std::runtime_error("Native process argument mismatch; fixture exit code " +
+        std::to_string(*result));
     result = run_process({.arguments = {"pawingo-command-that-does-not-exist"}});
     require(!result && result.error().kind == ProcessErrorKind::launch,
       "missing command has a typed launch failure");
