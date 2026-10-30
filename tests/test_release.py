@@ -10,7 +10,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from tools.release import bundle, checksum, info, native_names, package_core, write_yaml
+from tools.release import bundle_elf, checksum, info, native_names, package_core, write_yaml
 from tools.release_collect import collect
 from tools.release_native import bundle_macho, bundle_pe, pe_imports
 
@@ -21,7 +21,7 @@ class ReleasePackagingTests(unittest.TestCase):
     def test_system_loader_absolute_path_is_never_bundled(self) -> None:
         """A loader entry is a system requirement, including ldd's absolute-name form."""
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             binary = root / "source"
             binary.write_bytes(b"trusted binary fixture")
             library = root / "libhelper.so.1"
@@ -36,26 +36,30 @@ class ReleasePackagingTests(unittest.TestCase):
                     )
                 return ""
 
-            with patch("tools.release.run", side_effect=fake_run), patch("tools.release.copy_notices"):
-                bundle(binary, stage / "bin/pawingo", stage)
+            with (
+                patch("tools.release.run", side_effect=fake_run),
+                patch("tools.release.copy_notices"),
+                patch("tools.release.os.confstr", return_value="glibc fixture", create=True),
+            ):
+                bundle_elf(binary, stage / "bin/pawingo", stage)
             self.assertEqual((stage / "lib/libhelper.so.1").read_bytes(), library.read_bytes())
             self.assertEqual(sorted(path.name for path in (stage / "lib").iterdir()), ["libhelper.so.1"])
 
     def test_absolute_non_system_dependency_is_rejected(self) -> None:
         """Unknown absolute DT_NEEDED names cannot escape the package library directory."""
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             with (
                 patch("tools.release.run", return_value="/outside/libhelper.so => /outside/libhelper.so (0x1)"),
                 self.assertRaisesRegex(ValueError, "Absolute DT_NEEDED"),
             ):
-                bundle(root / "source", root / "stage/bin/pawingo", root / "stage")
+                bundle_elf(root / "source", root / "stage/bin/pawingo", root / "stage")
             self.assertFalse((root / "stage").exists())
 
     def test_release_manifest_excludes_unrelated_archives(self) -> None:
         """Only the current host and catalog-pinned plugin enter the release upload manifest."""
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             plugin = root / "pawingo-japanese-0.1.0-linux-x86_64-gnu.tar.gz"
             plugin.write_bytes(b"plugin fixture")
             (root / "unrelated-fixture.tar.gz").write_bytes(b"unrelated fixture")
@@ -130,7 +134,7 @@ class ReleasePackagingTests(unittest.TestCase):
 
     def test_pe_closure_is_colocated_and_checks_architecture(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             source = root / "host.exe"
             source.write_bytes(b"host")
             (root / "helper.dll").write_bytes(b"helper")
@@ -151,7 +155,7 @@ class ReleasePackagingTests(unittest.TestCase):
 
     def test_pe_rejects_a_dependency_for_another_architecture(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             host = root / "host.exe"
             host.write_bytes(b"host")
             (root / "helper.dll").write_bytes(b"wrong architecture")
@@ -166,7 +170,7 @@ class ReleasePackagingTests(unittest.TestCase):
 
     def test_macho_dependency_edges_are_relative_and_signed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             host = root / "host"
             library = root / "helper.dylib"
             host.write_bytes(b"host")
@@ -196,7 +200,7 @@ class ReleasePackagingTests(unittest.TestCase):
     def test_matrix_catalog_requires_complete_matching_builds(self) -> None:
         """Aggregation rejects missing platforms, different commits and corrupt artifacts."""
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             inputs = root / "inputs"
             expected = {"linux-x86_64-gnu", "windows-aarch64"}
             for platform in expected:
